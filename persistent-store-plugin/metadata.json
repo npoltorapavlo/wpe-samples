@@ -1,0 +1,6 @@
+{
+  "name": "persistent-store-plugin",
+  "identifier": "com.app.persistent-store-plugin",
+  "version": "1.0.0",
+  "icon": "./static/icon.png"
+}
