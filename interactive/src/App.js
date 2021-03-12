@@ -2,7 +2,19 @@ import { Lightning, Utils } from '@lightningjs/sdk'
 
 import Overlay from './Overlay'
 import TextLine from './TextLine'
-import TextBox from './TextBox'
+import TextBox, { LineStyle } from './TextBox'
+import ThunderAdmin, {
+  IdDoesntExistError,
+  IdExistsError,
+  JsonParseError,
+  ThunderAdminObserver,
+} from './ThunderAdmin'
+
+const LogLevel = Object.freeze({
+  Error,
+  Response,
+  Event,
+})
 
 export default class App extends Lightning.Component {
   static getFonts() {
@@ -27,6 +39,7 @@ export default class App extends Lightning.Component {
         mount: 0.5,
         x: 960,
         y: 540,
+        wordWrapWidth: 1440,
       },
       Overlay: {
         type: Overlay,
@@ -36,7 +49,7 @@ export default class App extends Lightning.Component {
         mainText:
           'Usage: Id Cmd [Args] <Enter>\n\n' +
           'Id: custom id to identify thunder client\n' +
-          'Cmd: new/call/on\n' +
+          'Cmd: new|delete|call|on|off\n' +
           'Args:\n' +
           '\t\t\t\tcall: Callsign Method [Params]\n' +
           '\t\t\t\ton: Callsign Event\n\n' +
@@ -51,18 +64,30 @@ export default class App extends Lightning.Component {
   }
 
   _init() {
-    setInterval(() => {
-      let level = Math.floor(Math.random() * 3)
-      this.tag('Log').add(
-        (
-          'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
-          'Vestibulum eu eros nec tellus imperdiet malesuada. ' +
-          'In malesuada egestas dui eget suscipit. ' +
-          'Nam ornare lorem eget cursus consectetur.'
-        ).substr(0, Math.random() * 200),
-        level === 1 ? 0xbb00ff00 : level === 2 ? 0xbbff0000 : 0xbbffffff
-      )
-    }, 1000)
+    this._inputHistory = []
+    this._inputHistoryIndex = 0
+
+    this._admin = new ThunderAdmin()
+
+    let _this = this
+    this._admin.callback = new (class extends ThunderAdminObserver {
+      onResponse(response) {
+        _this.log(
+          LogLevel.Response,
+          `Id=${response.id} Callsign=${response.callsign} ` +
+            `Method=${response.method} Params=${JSON.stringify(response.params)} ` +
+            `Response=${JSON.stringify(response)}`
+        )
+      }
+
+      onEvent(event) {
+        _this.log(
+          LogLevel.Event,
+          `Id=${event.id} Callsign=${event.callsign} Event=${event.event} ` +
+            `Notification=${JSON.stringify(event.notification)}`
+        )
+      }
+    })()
   }
 
   _handleKey(event) {
@@ -74,10 +99,6 @@ export default class App extends Lightning.Component {
     let inputText = currentInputText
 
     switch (event.key) {
-      case 'Down':
-      case 'ArrowDown':
-      case 'Up':
-      case 'ArrowUp':
       case 'Left':
       case 'ArrowLeft':
       case 'Right':
@@ -86,16 +107,33 @@ export default class App extends Lightning.Component {
       case 'Alt':
       case 'Shift':
       case 'Meta':
+      case 'Delete':
+      case 'Down':
+      case 'ArrowDown':
+      case 'Up':
+      case 'ArrowUp':
         // Quit when this doesn't handle the key event.
         return
+      case 'PageDown':
+        if (this._inputHistoryIndex < this._inputHistory.length - 1)
+          inputText = this._inputHistory[++this._inputHistoryIndex]
+        break
+      case 'PageUp':
+        if (this._inputHistoryIndex > 0) inputText = this._inputHistory[--this._inputHistoryIndex]
+        break
       case 'Enter':
+        if (inputText) {
+          this._inputHistory.push(inputText)
+          this._inputHistoryIndex = this._inputHistory.length
+        }
+        this._onInput(inputText)
         inputText = ''
         break
       case 'Backspace':
         inputText = inputText.slice(0, -1)
         break
       case 'Tab':
-        inputText += '\t'
+        inputText += ' '
         break
       case 'Esc':
       case 'Escape':
@@ -117,5 +155,58 @@ export default class App extends Lightning.Component {
 
   _getFocused() {
     return this.tag('Log')
+  }
+
+  log(level, message) {
+    switch (level) {
+      case LogLevel.Error:
+        console.error(message)
+        this.tag('Log').add(message, LineStyle.Red)
+        break
+      case LogLevel.Response:
+        console.log(message)
+        this.tag('Log').add(message, LineStyle.Default)
+        break
+      case LogLevel.Event:
+        console.log(message)
+        this.tag('Log').add(message, LineStyle.Default)
+        break
+    }
+  }
+
+  _onInput(input) {
+    try {
+      let match
+
+      if ((match = input.match(/(.+) +new/))) {
+        this._admin.new(match[1])
+      } else if ((match = input.match(/(.+) +delete/))) {
+        this._admin.delete(match[1])
+      } else if ((match = input.match(/(.+) +on +(.+) +(.+)/))) {
+        this._admin.on(match[1], match[2], match[3])
+      } else if ((match = input.match(/(.+) +off +(.+) +(.+)/))) {
+        this._admin.off(match[1], match[2], match[3])
+      } else if ((match = input.match(/(.+) +call +(.+) +(.+) +(.+)/))) {
+        this._admin.call(match[1], match[2], match[3], match[4])
+      } else if ((match = input.match(/(.+) +call +(.+) +(.+)/))) {
+        this._admin.call(match[1], match[2], match[3])
+      } else {
+        this.log(LogLevel.Error, `Bad input '${input}'. Press Esc to show Help`)
+      }
+    } catch (e) {
+      let message
+
+      if (e instanceof IdDoesntExistError) {
+        message = `Id '${e.id}' doesn't exist. Use Cmd 'new' to create it. Press Esc to show Help`
+      } else if (e instanceof IdExistsError) {
+        message = `Id '${e.id}' already exists. Use Cmd 'delete' to delete it. Press Esc to show Help`
+      } else if (e instanceof JsonParseError) {
+        message = `Params '${e.json}' isn't a valid JSON object. Press Esc to show Help`
+      } else {
+        message = e.message()
+      }
+
+      this.log(LogLevel.Error, message)
+    }
   }
 }

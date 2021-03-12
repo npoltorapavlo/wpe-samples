@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Fri, 12 Mar 2021 01:12:22 GMT
+ * Generated: Fri, 12 Mar 2021 16:09:21 GMT
  */
 
 var APP_interactive = (function () {
@@ -5777,11 +5777,11 @@ var APP_interactive = (function () {
   class TextLine extends Lightning.Component {
     static _template() {
       return {
-        flex: { direction: 'row', padding: 0, wrap: false },
+        flex: { direction: 'row', padding: 0 },
         rect: true,
         color: 0x66000000,
         Text: {
-          flexItem: { margin: 0, shrink: 1 },
+          flexItem: { margin: 0 },
           text: {
             text: '',
             fontFace: 'Regular',
@@ -5815,7 +5815,25 @@ var APP_interactive = (function () {
     set textColor(value) {
       this.tag('Text').text.textColor = value;
     }
+
+    set wordWrapWidth(w) {
+      this.tag('Text').text.wordWrapWidth = w;
+    }
   }
+
+  const LineStyle = Object.freeze({
+    Default: {
+      textColor: 0xbbffffff,
+    },
+    Green: {
+      textColor: 0xbb00ff00,
+    },
+    Red: {
+      textColor: 0xbbff0000,
+    },
+  });
+
+  const LineFontSize = 16;
 
   class TextBox extends Lightning.Component {
     static _template() {
@@ -5823,6 +5841,7 @@ var APP_interactive = (function () {
         clipping: true,
         Rows: {
           w: w => w,
+          flex: { direction: 'column', padding: 0 },
         },
       }
     }
@@ -5831,13 +5850,17 @@ var APP_interactive = (function () {
       this.index = 0;
     }
 
-    add(text, textColor) {
+    add(line, style) {
       this.tag('Rows').childList.a({
-        y: this.tag('Rows').childList.length * 30,
-        type: TextLine,
-        text: text,
-        textColor: textColor,
-        fontSize: 20,
+        flexItem: { margin: 0 },
+        flex: { direction: 'row', padding: 0 },
+        Text: {
+          flexItem: { margin: 0 },
+          type: TextLine,
+          text: line,
+          textColor: style.textColor,
+          fontSize: LineFontSize,
+        },
       });
     }
 
@@ -5877,6 +5900,547 @@ var APP_interactive = (function () {
     }
   }
 
+  /**
+   * If not stated otherwise in this file or this component's LICENSE file the
+   * following copyright and licenses apply:
+   *
+   * Copyright 2020 RDK Management
+   *
+   * Licensed under the Apache License, Version 2.0 (the License);
+   * you may not use this file except in compliance with the License.
+   * You may obtain a copy of the License at
+   *
+   * http://www.apache.org/licenses/LICENSE-2.0
+   *
+   * Unless required by applicable law or agreed to in writing, software
+   * distributed under the License is distributed on an "AS IS" BASIS,
+   * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   * See the License for the specific language governing permissions and
+   * limitations under the License.
+   */
+
+  let ws = null;
+  if (typeof WebSocket !== 'undefined') {
+    ws = WebSocket;
+  }
+  var ws_1 = ws;
+
+  const requestsQueue = {};
+  const listeners = {};
+
+  var requestQueueResolver = data => {
+    if (typeof data === 'string') {
+      data = JSON.parse(data.normalize().replace(/\\x([0-9A-Fa-f]{2})/g, ''));
+    }
+    if (data.id) {
+      const request = requestsQueue[data.id];
+      if (request) {
+        if ('result' in data) request.resolve(data.result);
+        else request.reject(data.error);
+        delete requestsQueue[data.id];
+      } else {
+        console.log('no pending request found with id ' + data.id);
+      }
+    }
+  };
+
+  var notificationListener = data => {
+    if (typeof data === 'string') {
+      data = JSON.parse(data.normalize().replace(/\\x([0-9A-Fa-f]{2})/g, ''));
+    }
+    if (!data.id && data.method) {
+      const callbacks = listeners[data.method];
+      if (callbacks && Array.isArray(callbacks) && callbacks.length) {
+        callbacks.forEach(callback => {
+          callback(data.params);
+        });
+      }
+    }
+  };
+
+  const protocol = 'ws://';
+  const host = 'localhost';
+  const endpoint = '/jsonrpc';
+  const port = 80;
+  var makeWebsocketAddress = options => {
+    return [
+      (options && options.protocol) || protocol,
+      (options && options.host) || host,
+      ':' + ((options && options.port) || port),
+      (options && options.endpoint) || endpoint,
+      options && options.token ? '?token=' + options.token : null,
+    ].join('')
+  };
+
+  const protocols = 'notification';
+  let socket = null;
+  var connect = options => {
+    return new Promise((resolve, reject) => {
+      if (socket && socket.readyState === 1) return resolve(socket)
+      if (socket && socket.readyState === 0) {
+        const waitForOpen = () => {
+          socket.removeEventListener('open', waitForOpen);
+          resolve(socket);
+        };
+        return socket.addEventListener('open', waitForOpen)
+      }
+      if (socket === null) {
+        socket = new ws_1(makeWebsocketAddress(options), protocols);
+        socket.addEventListener('message', message => {
+          if (options.debug) {
+            console.log(' ');
+            console.log('API REPONSE:');
+            console.log(JSON.stringify(message.data, null, 2));
+            console.log(' ');
+          }
+          requestQueueResolver(message.data);
+        });
+        socket.addEventListener('message', message => {
+          notificationListener(message.data);
+        });
+        socket.addEventListener('error', () => {
+          notificationListener({
+            method: 'client.ThunderJS.events.error',
+          });
+          socket = null;
+        });
+        const handleConnectClosure = event => {
+          socket = null;
+          reject(event);
+        };
+        socket.addEventListener('close', handleConnectClosure);
+        socket.addEventListener('open', () => {
+          notificationListener({
+            method: 'client.ThunderJS.events.connect',
+          });
+          socket.removeEventListener('close', handleConnectClosure);
+          socket.addEventListener('close', () => {
+            notificationListener({
+              method: 'client.ThunderJS.events.disconnect',
+            });
+            socket = null;
+          });
+          resolve(socket);
+        });
+      } else {
+        socket = null;
+        reject('Socket error');
+      }
+    })
+  };
+
+  var makeBody = (requestId, plugin, method, params, version) => {
+    params ? delete params.version : null;
+    const body = {
+      jsonrpc: '2.0',
+      id: requestId,
+      method: [plugin, version, method].join('.'),
+    };
+    params || params === false
+      ?
+        typeof params === 'object' && Object.keys(params).length === 0
+        ? null
+        : (body.params = params)
+      : null;
+    return body
+  };
+
+  var getVersion = (versionsConfig, plugin, params) => {
+    const defaultVersion = 1;
+    let version;
+    if ((version = params && params.version)) {
+      return version
+    }
+    return versionsConfig
+      ? versionsConfig[plugin] || versionsConfig.default || defaultVersion
+      : defaultVersion
+  };
+
+  let id = 0;
+  var makeId = () => {
+    id = id + 1;
+    return id
+  };
+
+  var execRequest = (options, body) => {
+    return connect(options).then(connection => {
+      connection.send(JSON.stringify(body));
+    })
+  };
+
+  var API = options => {
+    return {
+      request(plugin, method, params) {
+        return new Promise((resolve, reject) => {
+          const requestId = makeId();
+          const version = getVersion(options.versions, plugin, params);
+          const body = makeBody(requestId, plugin, method, params, version);
+          if (options.debug) {
+            console.log(' ');
+            console.log('API REQUEST:');
+            console.log(JSON.stringify(body, null, 2));
+            console.log(' ');
+          }
+          requestsQueue[requestId] = {
+            body,
+            resolve,
+            reject,
+          };
+          execRequest(options, body).catch(e => {
+            reject(e);
+          });
+        })
+      },
+    }
+  };
+
+  var DeviceInfo = {
+    freeRam(params) {
+      return this.call('systeminfo', params).then(res => {
+        return res.freeram
+      })
+    },
+    version(params) {
+      return this.call('systeminfo', params).then(res => {
+        return res.version
+      })
+    },
+  };
+
+  var plugins = {
+    DeviceInfo,
+  };
+
+  function listener(plugin, event, callback, errorCallback) {
+    const thunder = this;
+    const index = register.call(this, plugin, event, callback, errorCallback);
+    return {
+      dispose() {
+        const listener_id = makeListenerId(plugin, event);
+        if (listeners[listener_id] === undefined) return
+        listeners[listener_id].splice(index, 1);
+        if (listeners[listener_id].length === 0) {
+          unregister.call(thunder, plugin, event, errorCallback);
+        }
+      },
+    }
+  }
+  const makeListenerId = (plugin, event) => {
+    return ['client', plugin, 'events', event].join('.')
+  };
+  const register = function(plugin, event, callback, errorCallback) {
+    const listener_id = makeListenerId(plugin, event);
+    if (!listeners[listener_id]) {
+      listeners[listener_id] = [];
+      if (plugin !== 'ThunderJS') {
+        const method = 'register';
+        const request_id = listener_id
+          .split('.')
+          .slice(0, -1)
+          .join('.');
+        const params = {
+          event,
+          id: request_id,
+        };
+        this.api.request(plugin, method, params).catch(e => {
+          if (typeof errorCallback === 'function') errorCallback(e.message);
+        });
+      }
+    }
+    listeners[listener_id].push(callback);
+    return listeners[listener_id].length - 1
+  };
+  const unregister = function(plugin, event, errorCallback) {
+    const listener_id = makeListenerId(plugin, event);
+    delete listeners[listener_id];
+    if (plugin !== 'ThunderJS') {
+      const method = 'unregister';
+      const request_id = listener_id
+        .split('.')
+        .slice(0, -1)
+        .join('.');
+      const params = {
+        event,
+        id: request_id,
+      };
+      this.api.request(plugin, method, params).catch(e => {
+        if (typeof errorCallback === 'function') errorCallback(e.message);
+      });
+    }
+  };
+
+  let api;
+  var thunderJS = options => {
+    if (
+      options.token === undefined &&
+      typeof window !== 'undefined' &&
+      window.thunder &&
+      typeof window.thunder.token === 'function'
+    ) {
+      options.token = window.thunder.token();
+    }
+    api = API(options);
+    return wrapper({ ...thunder(options), ...plugins })
+  };
+  const resolve = (result, args) => {
+    if (
+      typeof result !== 'object' ||
+      (typeof result === 'object' && (!result.then || typeof result.then !== 'function'))
+    ) {
+      result = new Promise((resolve, reject) => {
+        result instanceof Error === false ? resolve(result) : reject(result);
+      });
+    }
+    const cb = typeof args[args.length - 1] === 'function' ? args[args.length - 1] : null;
+    if (cb) {
+      result.then(res => cb(null, res)).catch(err => cb(err));
+    } else {
+      return result
+    }
+  };
+  const thunder = options => ({
+    options,
+    plugin: false,
+    call() {
+      const args = [...arguments];
+      if (this.plugin) {
+        if (args[0] !== this.plugin) {
+          args.unshift(this.plugin);
+        }
+      }
+      const plugin = args[0];
+      const method = args[1];
+      if (typeof this[plugin][method] == 'function') {
+        return this[plugin][method](args[2])
+      }
+      return this.api.request.apply(this, args)
+    },
+    registerPlugin(name, plugin) {
+      this[name] = wrapper(Object.assign(Object.create(thunder), plugin, { plugin: name }));
+    },
+    subscribe() {
+    },
+    on() {
+      const args = [...arguments];
+      if (['connect', 'disconnect', 'error'].indexOf(args[0]) !== -1) {
+        args.unshift('ThunderJS');
+      } else {
+        if (this.plugin) {
+          if (args[0] !== this.plugin) {
+            args.unshift(this.plugin);
+          }
+        }
+      }
+      return listener.apply(this, args)
+    },
+    once() {
+      console.log('todo ...');
+    },
+  });
+  const wrapper = obj => {
+    return new Proxy(obj, {
+      get(target, propKey) {
+        const prop = target[propKey];
+        if (propKey === 'api') {
+          return api
+        }
+        if (typeof prop !== 'undefined') {
+          if (typeof prop === 'function') {
+            if (['on', 'once', 'subscribe'].indexOf(propKey) > -1) {
+              return function(...args) {
+                return prop.apply(this, args)
+              }
+            }
+            return function(...args) {
+              return resolve(prop.apply(this, args), args)
+            }
+          }
+          if (typeof prop === 'object') {
+            return wrapper(
+              Object.assign(Object.create(thunder(target.options)), prop, { plugin: propKey })
+            )
+          }
+          return prop
+        } else {
+          if (target.plugin === false) {
+            return wrapper(
+              Object.assign(Object.create(thunder(target.options)), {}, { plugin: propKey })
+            )
+          }
+          return function(...args) {
+            args.unshift(propKey);
+            return target.call.apply(this, args)
+          }
+        }
+      },
+    })
+  };
+
+  class JsonParseError extends Error {
+    constructor(json) {
+      super();
+      this.json = json;
+    }
+  }
+
+  const thunderConfig = {
+    host: '127.0.0.1',
+    port: 9998,
+    default: 1,
+    debug: true,
+  };
+
+  class ThunderClient {
+    constructor() {
+      this._thunder = thunderJS(thunderConfig);
+
+      // Collection of ThunderJS listeners
+      this._listeners = new Map();
+    }
+
+    call(callsign, method, params = {}) {
+      // ThunderJS accepts JSON objects
+      if (typeof params === 'string') {
+        let str = params;
+        try {
+          params = JSON.parse(str);
+        } catch (e) {
+          throw new JsonParseError(str)
+        }
+        if (!params || typeof params !== 'object') {
+          throw new JsonParseError(str)
+        }
+      }
+
+      return this._thunder.call(callsign, method, params)
+    }
+
+    on(callsign, event, callback, error) {
+      let id = callsign + '.' + event;
+
+      // Cleanup, if needed
+      if (this._listeners.has(id)) {
+        this.off(callsign, event);
+      }
+
+      this._listeners.set(id, this._thunder.on(callsign, event, callback, error));
+    }
+
+    off(callsign, event) {
+      let id = callsign + '.' + event;
+
+      // To unsubscribe, ThunderJS provides 'dispose'
+      if (this._listeners.has(id)) {
+        this._listeners.get(id).dispose();
+        this._listeners.delete(id);
+      }
+    }
+  }
+
+  class IdDoesntExistError extends Error {
+    constructor(id) {
+      super();
+      this.id = id;
+    }
+  }
+
+  class IdExistsError extends Error {
+    constructor(id) {
+      super();
+      this.id = id;
+    }
+  }
+
+  class ThunderAdminResponse {
+    constructor(id, callsign, method, params, response) {
+      this.id = id;
+      this.callsign = callsign;
+      this.method = method;
+      this.params = params;
+      this.response = response;
+    }
+  }
+
+  class ThunderAdminEvent {
+    constructor(id, callsign, event, notification) {
+      this.id = id;
+      this.callsign = callsign;
+      this.event = event;
+      this.notification = notification;
+    }
+  }
+
+  class ThunderAdminObserver {
+    onResponse() {}
+    onEvent() {}
+  }
+
+  class ThunderAdmin {
+    constructor() {
+      this._clients = new Map();
+      this._callback = new ThunderAdminObserver();
+    }
+
+    set callback(callback) {
+      this._callback = callback;
+    }
+
+    _assertExists(id) {
+      if (!this._clients.has(id)) throw new IdDoesntExistError(id)
+    }
+
+    _assertNotExists(id) {
+      if (this._clients.has(id)) throw new IdExistsError(id)
+    }
+
+    new(id) {
+      this._assertNotExists(id);
+      this._clients.set(id, new ThunderClient());
+    }
+
+    delete(id) {
+      this._assertExists(id);
+      this._clients.delete(id);
+    }
+
+    call(id, callsign, method, params = {}) {
+      this._assertExists(id);
+      this._clients
+        .get(id)
+        .call(callsign, method, params)
+        .then(
+          response =>
+            this._callback.onResponse(
+              new ThunderAdminResponse(id, callsign, method, params, response)
+            ),
+          err =>
+            this._callback.onResponse(new ThunderAdminResponse(id, callsign, method, params, err))
+        );
+    }
+
+    on(id, callsign, event) {
+      this._assertExists(id);
+      this._clients.get(id).on(
+        callsign,
+        event,
+        notification =>
+          this._callback.onEvent(new ThunderAdminEvent(id, callsign, event, notification)),
+        err => this._callback.onEvent(new ThunderAdminEvent(id, callsign, event, err))
+      );
+    }
+
+    off(id, callsign, event) {
+      this._assertExists(id);
+      this._clients.get(id).off(callsign, event);
+    }
+  }
+
+  const LogLevel = Object.freeze({
+    Error,
+    Response,
+    Event,
+  });
+
   class App extends Lightning.Component {
     static getFonts() {
       return [{ family: 'Regular', url: Utils.asset('fonts/Roboto-Regular.ttf') }]
@@ -5900,6 +6464,7 @@ var APP_interactive = (function () {
           mount: 0.5,
           x: 960,
           y: 540,
+          wordWrapWidth: 1440,
         },
         Overlay: {
           type: Overlay,
@@ -5909,7 +6474,7 @@ var APP_interactive = (function () {
           mainText:
             'Usage: Id Cmd [Args] <Enter>\n\n' +
             'Id: custom id to identify thunder client\n' +
-            'Cmd: new/call/on\n' +
+            'Cmd: new|delete|call|on|off\n' +
             'Args:\n' +
             '\t\t\t\tcall: Callsign Method [Params]\n' +
             '\t\t\t\ton: Callsign Event\n\n' +
@@ -5924,18 +6489,30 @@ var APP_interactive = (function () {
     }
 
     _init() {
-      setInterval(() => {
-        let level = Math.floor(Math.random() * 3);
-        this.tag('Log').add(
-          (
-            'Lorem ipsum dolor sit amet, consectetur adipiscing elit. ' +
-            'Vestibulum eu eros nec tellus imperdiet malesuada. ' +
-            'In malesuada egestas dui eget suscipit. ' +
-            'Nam ornare lorem eget cursus consectetur.'
-          ).substr(0, Math.random() * 200),
-          level === 1 ? 0xbb00ff00 : level === 2 ? 0xbbff0000 : 0xbbffffff
-        );
-      }, 1000);
+      this._inputHistory = [];
+      this._inputHistoryIndex = 0;
+
+      this._admin = new ThunderAdmin();
+
+      let _this = this;
+      this._admin.callback = new (class extends ThunderAdminObserver {
+        onResponse(response) {
+          _this.log(
+            LogLevel.Response,
+            `Id=${response.id} Callsign=${response.callsign} ` +
+              `Method=${response.method} Params=${JSON.stringify(response.params)} ` +
+              `Response=${JSON.stringify(response)}`
+          );
+        }
+
+        onEvent(event) {
+          _this.log(
+            LogLevel.Event,
+            `Id=${event.id} Callsign=${event.callsign} Event=${event.event} ` +
+              `Notification=${JSON.stringify(event.notification)}`
+          );
+        }
+      })();
     }
 
     _handleKey(event) {
@@ -5947,10 +6524,6 @@ var APP_interactive = (function () {
       let inputText = currentInputText;
 
       switch (event.key) {
-        case 'Down':
-        case 'ArrowDown':
-        case 'Up':
-        case 'ArrowUp':
         case 'Left':
         case 'ArrowLeft':
         case 'Right':
@@ -5959,16 +6532,33 @@ var APP_interactive = (function () {
         case 'Alt':
         case 'Shift':
         case 'Meta':
+        case 'Delete':
+        case 'Down':
+        case 'ArrowDown':
+        case 'Up':
+        case 'ArrowUp':
           // Quit when this doesn't handle the key event.
           return
+        case 'PageDown':
+          if (this._inputHistoryIndex < this._inputHistory.length - 1)
+            inputText = this._inputHistory[++this._inputHistoryIndex];
+          break
+        case 'PageUp':
+          if (this._inputHistoryIndex > 0) inputText = this._inputHistory[--this._inputHistoryIndex];
+          break
         case 'Enter':
+          if (inputText) {
+            this._inputHistory.push(inputText);
+            this._inputHistoryIndex = this._inputHistory.length;
+          }
+          this._onInput(inputText);
           inputText = '';
           break
         case 'Backspace':
           inputText = inputText.slice(0, -1);
           break
         case 'Tab':
-          inputText += '\t';
+          inputText += ' ';
           break
         case 'Esc':
         case 'Escape':
@@ -5990,6 +6580,59 @@ var APP_interactive = (function () {
 
     _getFocused() {
       return this.tag('Log')
+    }
+
+    log(level, message) {
+      switch (level) {
+        case LogLevel.Error:
+          console.error(message);
+          this.tag('Log').add(message, LineStyle.Red);
+          break
+        case LogLevel.Response:
+          console.log(message);
+          this.tag('Log').add(message, LineStyle.Default);
+          break
+        case LogLevel.Event:
+          console.log(message);
+          this.tag('Log').add(message, LineStyle.Default);
+          break
+      }
+    }
+
+    _onInput(input) {
+      try {
+        let match;
+
+        if ((match = input.match(/(.+) +new/))) {
+          this._admin.new(match[1]);
+        } else if ((match = input.match(/(.+) +delete/))) {
+          this._admin.delete(match[1]);
+        } else if ((match = input.match(/(.+) +on +(.+) +(.+)/))) {
+          this._admin.on(match[1], match[2], match[3]);
+        } else if ((match = input.match(/(.+) +off +(.+) +(.+)/))) {
+          this._admin.off(match[1], match[2], match[3]);
+        } else if ((match = input.match(/(.+) +call +(.+) +(.+) +(.+)/))) {
+          this._admin.call(match[1], match[2], match[3], match[4]);
+        } else if ((match = input.match(/(.+) +call +(.+) +(.+)/))) {
+          this._admin.call(match[1], match[2], match[3]);
+        } else {
+          this.log(LogLevel.Error, `Bad input '${input}'. Press Esc to show Help`);
+        }
+      } catch (e) {
+        let message;
+
+        if (e instanceof IdDoesntExistError) {
+          message = `Id '${e.id}' doesn't exist. Use Cmd 'new' to create it. Press Esc to show Help`;
+        } else if (e instanceof IdExistsError) {
+          message = `Id '${e.id}' already exists. Use Cmd 'delete' to delete it. Press Esc to show Help`;
+        } else if (e instanceof JsonParseError) {
+          message = `Params '${e.json}' isn't a valid JSON object. Press Esc to show Help`;
+        } else {
+          message = e.message();
+        }
+
+        this.log(LogLevel.Error, message);
+      }
     }
   }
 

@@ -1,12 +1,27 @@
 import { Lightning } from '@lightningjs/sdk'
 import TextLine from './TextLine'
 
+export const LineStyle = Object.freeze({
+  Default: {
+    textColor: 0xbbffffff,
+  },
+  Green: {
+    textColor: 0xbb00ff00,
+  },
+  Red: {
+    textColor: 0xbbff0000,
+  },
+})
+
+const LineFontSize = 16
+
 export default class TextBox extends Lightning.Component {
   static _template() {
     return {
       clipping: true,
       Rows: {
         w: w => w,
+        flex: { direction: 'column', padding: 0 },
       },
     }
   }
@@ -15,18 +30,18 @@ export default class TextBox extends Lightning.Component {
     this.index = 0
   }
 
-  add(text, textColor) {
+  add(line, style) {
     this.tag('Rows').childList.a({
-      y: this.tag('Rows').childList.length * 30,
-      type: TextLine,
-      text: text,
-      textColor: textColor,
-      fontSize: 20,
+      flexItem: { margin: 0 },
+      flex: { direction: 'row', padding: 0 },
+      Text: {
+        flexItem: { margin: 0 },
+        type: TextLine,
+        text: line,
+        textColor: style.textColor,
+        fontSize: LineFontSize,
+      },
     })
-  }
-
-  _getFocused() {
-    return this.tag('Rows').children[this.index]
   }
 
   _handleUp() {

@@ -3,11 +3,11 @@ import { Lightning } from '@lightningjs/sdk'
 export default class TextLine extends Lightning.Component {
   static _template() {
     return {
-      flex: { direction: 'row', padding: 0, wrap: false },
+      flex: { direction: 'row', padding: 0 },
       rect: true,
       color: 0x66000000,
       Text: {
-        flexItem: { margin: 0, shrink: 1 },
+        flexItem: { margin: 0 },
         text: {
           text: '',
           fontFace: 'Regular',
@@ -16,14 +16,6 @@ export default class TextLine extends Lightning.Component {
         },
       },
     }
-  }
-
-  _focus() {
-    this.color = 0x66444444
-  }
-
-  _unfocus() {
-    this.color = 0x66000000
   }
 
   set text(value) {
@@ -40,5 +32,9 @@ export default class TextLine extends Lightning.Component {
 
   set textColor(value) {
     this.tag('Text').text.textColor = value
+  }
+
+  set wordWrapWidth(w) {
+    this.tag('Text').text.wordWrapWidth = w
   }
 }
