@@ -1,14 +1,14 @@
-# warehouse-reset
+# interactive
 
-## com.app.warehouse-reset
+## interactive
 
 ### Getting started
 
 > Before you follow the steps below, make sure you have the
-[Lightning-CLI](https://github.com/WebPlatformForEmbedded/Lightning-CLI) installed _globally_ only your system
+[Lightning-CLI](https://rdkcentral.github.io/Lightning-CLI/#/) installed _globally_ only your system
 
 ```
-npm install -g WebPlatformForEmbedded/Lightning-CLI
+npm install -g @lightningjs/cli
 ```
 
 #### Running the App

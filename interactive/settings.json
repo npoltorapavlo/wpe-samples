@@ -4,7 +4,8 @@
       "clearColor": "0x00000000",
       "useImageWorker": true
     },
-    "debug": false
+    "debug": false,
+    "version": "1.0.14"
   },
   "platformSettings": {
     "path": "./static",

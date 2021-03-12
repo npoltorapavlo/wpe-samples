@@ -19,7 +19,8 @@
     "clearColor": "0x00000000",
     "useImageWorker": true
   },
-  "debug": false
+  "debug": false,
+  "version": "1.0.14"
 }
 
             const platformSettings = {
@@ -30,7 +31,13 @@
 
             const appData = {}
 
-            const app = APP_com_app_warehouse_reset(appSettings, platformSettings, appData)
+            let bundle = window.APP_interactive
+            // support rollup and esbuild
+            if (typeof bundle !== 'function') {
+              bundle = bundle.default
+            }
+
+            const app = bundle(appSettings, platformSettings, appData)
             document.body.appendChild(app.stage.getCanvas())
 
         </script>
