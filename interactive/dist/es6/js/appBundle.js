@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Fri, 12 Mar 2021 16:09:21 GMT
+ * Generated: Fri, 12 Mar 2021 16:50:06 GMT
  */
 
 var APP_interactive = (function () {
@@ -5792,14 +5792,6 @@ var APP_interactive = (function () {
       }
     }
 
-    _focus() {
-      this.color = 0x66444444;
-    }
-
-    _unfocus() {
-      this.color = 0x66000000;
-    }
-
     set text(value) {
       this.tag('Text').text.text = value;
     }
@@ -5862,10 +5854,6 @@ var APP_interactive = (function () {
           fontSize: LineFontSize,
         },
       });
-    }
-
-    _getFocused() {
-      return this.tag('Rows').children[this.index]
     }
 
     _handleUp() {
@@ -6604,16 +6592,25 @@ var APP_interactive = (function () {
         let match;
 
         if ((match = input.match(/(.+) +new/))) {
+          this.tag('Log').add(`User input: ${match[1]} new`, LineStyle.Green);
           this._admin.new(match[1]);
         } else if ((match = input.match(/(.+) +delete/))) {
+          this.tag('Log').add(`User input: ${match[1]} delete`, LineStyle.Green);
           this._admin.delete(match[1]);
         } else if ((match = input.match(/(.+) +on +(.+) +(.+)/))) {
+          this.tag('Log').add(`User input: ${match[1]} on ${match[2]} ${match[3]}`, LineStyle.Green);
           this._admin.on(match[1], match[2], match[3]);
         } else if ((match = input.match(/(.+) +off +(.+) +(.+)/))) {
+          this.tag('Log').add(`User input: ${match[1]} off ${match[2]} ${match[3]}`, LineStyle.Green);
           this._admin.off(match[1], match[2], match[3]);
         } else if ((match = input.match(/(.+) +call +(.+) +(.+) +(.+)/))) {
+          this.tag('Log').add(
+            `User input: ${match[1]} call ${match[2]} ${match[3]} ${match[4]}`,
+            LineStyle.Green
+          );
           this._admin.call(match[1], match[2], match[3], match[4]);
         } else if ((match = input.match(/(.+) +call +(.+) +(.+)/))) {
+          this.tag('Log').add(`User input: ${match[1]} call ${match[2]} ${match[3]}`, LineStyle.Green);
           this._admin.call(match[1], match[2], match[3]);
         } else {
           this.log(LogLevel.Error, `Bad input '${input}'. Press Esc to show Help`);
