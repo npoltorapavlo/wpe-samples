@@ -13,7 +13,7 @@ export const LineStyle = Object.freeze({
   },
 })
 
-const LineFontSize = 16
+const LineFontSize = 14
 
 export default class TextBox extends Lightning.Component {
   static _template() {
@@ -42,6 +42,11 @@ export default class TextBox extends Lightning.Component {
         fontSize: LineFontSize,
       },
     })
+  }
+
+  clear() {
+    this.tag('Rows').childList.clear()
+    this.tag('Rows').y = 0
   }
 
   _handleUp() {
