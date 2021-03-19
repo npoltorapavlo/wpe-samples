@@ -1,0 +1,163 @@
+From df90bb946d2c34d3fb3a00ae6c2f02287350a27e Mon Sep 17 00:00:00 2001
+From: Nikita Poltorapavlo <Nikita_Poltorapavlo2@cable.comcast.com>
+Date: Fri, 19 Mar 2021 15:27:52 +0200
+Subject: [PATCH] prefix and suffix of listener
+
+---
+ module/thunderJS.js | 27 +++++++++++++++------------
+ src/listener.js     | 28 ++++++++++++++++------------
+ 2 files changed, 31 insertions(+), 24 deletions(-)
+
+diff --git a/module/thunderJS.js b/module/thunderJS.js
+index bb89ec6..4949069 100644
+--- a/module/thunderJS.js
++++ b/module/thunderJS.js
+@@ -209,25 +209,28 @@ var plugins = {
+   DeviceInfo,
+ };
+ 
+-function listener(plugin, event, callback, errorCallback) {
++function listener(plugin, listenerArg, callback, errorCallback) {
+   const thunder = this;
+-  const index = register.call(this, plugin, event, callback, errorCallback);
++  var listenerCfg = typeof listenerArg == "string" ? { event: listenerArg } : listenerArg;
++  listenerCfg.prefix = listenerCfg.prefix || "client";
++  listenerCfg.suffix = listenerCfg.suffix || "events";
++  const index = register.call(this, plugin, listenerCfg, callback, errorCallback);
+   return {
+     dispose() {
+-      const listener_id = makeListenerId(plugin, event);
++      const listener_id = makeListenerId(plugin, listenerCfg);
+       if (listeners[listener_id] === undefined) return
+       listeners[listener_id].splice(index, 1);
+       if (listeners[listener_id].length === 0) {
+-        unregister.call(thunder, plugin, event, errorCallback);
++        unregister.call(thunder, plugin, listenerCfg, errorCallback);
+       }
+     },
+   }
+ }
+-const makeListenerId = (plugin, event) => {
+-  return ['client', plugin, 'events', event].join('.')
++const makeListenerId = (plugin, listenerCfg) => {
++  return [listenerCfg.prefix, plugin, listenerCfg.suffix, listenerCfg.event].join('.')
+ };
+-const register = function(plugin, event, callback, errorCallback) {
+-  const listener_id = makeListenerId(plugin, event);
++const register = function(plugin, listenerCfg, callback, errorCallback) {
++  const listener_id = makeListenerId(plugin, listenerCfg);
+   if (!listeners[listener_id]) {
+     listeners[listener_id] = [];
+     if (plugin !== 'ThunderJS') {
+@@ -237,7 +240,7 @@ const register = function(plugin, event, callback, errorCallback) {
+         .slice(0, -1)
+         .join('.');
+       const params = {
+-        event,
++        event: listenerCfg.event,
+         id: request_id,
+       };
+       this.api.request(plugin, method, params).catch(e => {
+@@ -248,8 +251,8 @@ const register = function(plugin, event, callback, errorCallback) {
+   listeners[listener_id].push(callback);
+   return listeners[listener_id].length - 1
+ };
+-const unregister = function(plugin, event, errorCallback) {
+-  const listener_id = makeListenerId(plugin, event);
++const unregister = function(plugin, listenerCfg, errorCallback) {
++  const listener_id = makeListenerId(plugin, listenerCfg);
+   delete listeners[listener_id];
+   if (plugin !== 'ThunderJS') {
+     const method = 'unregister';
+@@ -258,7 +261,7 @@ const unregister = function(plugin, event, errorCallback) {
+       .slice(0, -1)
+       .join('.');
+     const params = {
+-      event,
++      event: listenerCfg.event,
+       id: request_id,
+     };
+     this.api.request(plugin, method, params).catch(e => {
+diff --git a/src/listener.js b/src/listener.js
+index 13f2fc0..ce4ff03 100644
+--- a/src/listener.js
++++ b/src/listener.js
+@@ -19,34 +19,38 @@
+ 
+ import { listeners } from './store'
+ 
+-export default function(plugin, event, callback, errorCallback) {
++export default function(plugin, listenerArg, callback, errorCallback) {
+   const thunder = this
++  // listenerArg can be only the event string or an object that contains the listener prefix and suffix as well
++  var listenerCfg = typeof listenerArg == "string" ? { event: listenerArg } : listenerArg;
++  listenerCfg.prefix = listenerCfg.prefix || "client";
++  listenerCfg.suffix = listenerCfg.suffix || "events";
+ 
+   // register and keep track of the index
+-  const index = register.call(this, plugin, event, callback, errorCallback)
++  const index = register.call(this, plugin, listenerCfg, callback, errorCallback)
+ 
+   return {
+     dispose() {
+-      const listener_id = makeListenerId(plugin, event)
++      const listener_id = makeListenerId(plugin, listenerCfg)
+       //early return if the listener is already deleted and someone is calling dispose twice
+       if (listeners[listener_id] === undefined) return
+ 
+       listeners[listener_id].splice(index, 1)
+ 
+       if (listeners[listener_id].length === 0) {
+-        unregister.call(thunder, plugin, event, errorCallback)
++        unregister.call(thunder, plugin, listenerCfg, errorCallback)
+       }
+     },
+   }
+ }
+ 
+ // construct a unique id for the listener
+-const makeListenerId = (plugin, event) => {
+-  return ['client', plugin, 'events', event].join('.')
++const makeListenerId = (plugin, listenerCfg) => {
++  return [listenerCfg.prefix, plugin, listenerCfg.suffix, listenerCfg.event].join('.')
+ }
+ 
+-const register = function(plugin, event, callback, errorCallback) {
+-  const listener_id = makeListenerId(plugin, event)
++const register = function(plugin, listenerCfg, callback, errorCallback) {
++  const listener_id = makeListenerId(plugin, listenerCfg)
+ 
+   // no listener registered for this plugin/event yet
+   if (!listeners[listener_id]) {
+@@ -65,7 +69,7 @@ const register = function(plugin, event, callback, errorCallback) {
+         .join('.')
+ 
+       const params = {
+-        event,
++        event: listenerCfg.event,
+         id: request_id,
+       }
+ 
+@@ -82,8 +86,8 @@ const register = function(plugin, event, callback, errorCallback) {
+   return listeners[listener_id].length - 1
+ }
+ 
+-const unregister = function(plugin, event, errorCallback) {
+-  const listener_id = makeListenerId(plugin, event)
++const unregister = function(plugin, listenerCfg, errorCallback) {
++  const listener_id = makeListenerId(plugin, listenerCfg)
+ 
+   delete listeners[listener_id]
+ 
+@@ -99,7 +103,7 @@ const unregister = function(plugin, event, errorCallback) {
+       .join('.')
+ 
+     const params = {
+-      event,
++      event: listenerCfg.event,
+       id: request_id,
+     }
+     this.api.request(plugin, method, params).catch(e => {
+-- 
+2.25.1
+

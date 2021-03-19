@@ -15,7 +15,7 @@ export default class Overlay extends Lightning.Component {
           text: {
             text: '',
             fontFace: 'Regular',
-            fontSize: 24,
+            fontSize: 20,
             textColor: 0xbbffffff,
           },
         },
@@ -39,10 +39,22 @@ export default class Overlay extends Lightning.Component {
     }
   }
 
-  toggleTransparency() {
+  get isShowing() {
+    return this.alpha > 0
+  }
+
+  show() {
     this.patch({
       smooth: {
-        alpha: [this.alpha > 0 ? 0 : 1, { duration: 0.2, timingFunction: 'ease-in' }],
+        alpha: [1, { duration: 0.2, timingFunction: 'ease-in' }],
+      },
+    })
+  }
+
+  hide() {
+    this.patch({
+      smooth: {
+        alpha: [0, { duration: 0.2, timingFunction: 'ease-in' }],
       },
     })
   }

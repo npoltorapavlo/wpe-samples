@@ -1,20 +1,10 @@
 import { Lightning, Utils } from '@lightningjs/sdk'
 
-import Overlay from './Overlay'
-import TextLine from './TextLine'
-import TextBox, { LineStyle } from './TextBox'
-import ThunderAdmin, {
-  IdDoesntExistError,
-  IdExistsError,
-  JsonParseError,
-  ThunderAdminObserver,
-} from './ThunderAdmin'
-
-const LogLevel = Object.freeze({
-  Error,
-  Response,
-  Event,
-})
+import Overlay from './components/Overlay'
+import TextLine from './components/TextLine'
+import TextBox, { LineStyle } from './components/TextBox'
+import Runtime from './thunder/Runtime'
+import FileScript from './thunder/FileScript'
 
 export default class App extends Lightning.Component {
   static getFonts() {
@@ -48,16 +38,17 @@ export default class App extends Lightning.Component {
         y: 540,
         mainText:
           'Usage: Id Cmd [Args] <Enter>\n\n' +
-          'Id: custom id to identify thunder client\n' +
+          'Id: any id to identify thunder client, ex. 1, a, etc\n' +
           'Cmd: new|delete|call|on|off\n' +
           'Args:\n' +
           '\t\t\t\tcall: Callsign Method [Params]\n' +
-          '\t\t\t\ton: Callsign Event\n\n' +
+          '\t\t\t\ton\\off: Callsign Event\n\n' +
           'Ex.:\n' +
           '\t\t\t\t1 new\n' +
           '\t\t\t\t1 call Controller activate {"callsign":"X"}\n' +
           '\t\t\t\t1 call X join {"user":"Y","room":"Z"}\n' +
-          '\t\t\t\t1 on X onEvent\n',
+          '\t\t\t\t1 on X eventName\n\n' +
+          'Press F1, F2, etc to trigger a built-in test',
         bottomText: 'Show/hide by pressing Esc',
       },
     }
@@ -67,155 +58,151 @@ export default class App extends Lightning.Component {
     this._inputHistory = []
     this._inputHistoryIndex = 0
 
-    this._admin = new ThunderAdmin()
-
-    let _this = this
-    this._admin.callback = new (class extends ThunderAdminObserver {
-      onResponse(response) {
-        _this.log(
-          LogLevel.Response,
-          `Id=${response.id} Callsign=${response.callsign} ` +
-            `Method=${response.method} Params=${JSON.stringify(response.params)} ` +
-            `Response=${JSON.stringify(response)}`
-        )
-      }
-
-      onEvent(event) {
-        _this.log(
-          LogLevel.Event,
-          `Id=${event.id} Callsign=${event.callsign} Event=${event.event} ` +
-            `Notification=${JSON.stringify(event.notification)}`
-        )
-      }
-    })()
+    this._setState('UserInput')
   }
 
-  _handleKey(event) {
-    if (event.defaultPrevented) {
-      return // Do nothing if the event was already processed
-    }
+  _logDefault(message) {
+    console.log(message)
+    this.tag('Log').add(message, LineStyle.Green)
+  }
 
-    let currentInputText = this.tag('Text').text
-    let inputText = currentInputText
+  _logImportant(message) {
+    console.warn(message)
+    this.tag('Log').add(message, LineStyle.Default)
+  }
 
-    switch (event.key) {
-      case 'Left':
-      case 'ArrowLeft':
-      case 'Right':
-      case 'ArrowRight':
-      case 'Control':
-      case 'Alt':
-      case 'Shift':
-      case 'Meta':
-      case 'Delete':
-      case 'Down':
-      case 'ArrowDown':
-      case 'Up':
-      case 'ArrowUp':
-        // Quit when this doesn't handle the key event.
-        return
-      case 'PageDown':
-        if (this._inputHistoryIndex < this._inputHistory.length - 1)
-          inputText = this._inputHistory[++this._inputHistoryIndex]
-        break
-      case 'PageUp':
-        if (this._inputHistoryIndex > 0) inputText = this._inputHistory[--this._inputHistoryIndex]
-        break
-      case 'Enter':
-        if (inputText) {
-          this._inputHistory.push(inputText)
-          this._inputHistoryIndex = this._inputHistory.length
+  _logCritical(message) {
+    console.error(message)
+    this.tag('Log').add(message, LineStyle.Red)
+  }
+
+  static _states() {
+    return [
+      class UserInput extends this {
+        $enter() {
+          this.tag('Log').clear()
+          this.tag('Text').text = ''
+
+          this._runtime = new Runtime(this._logImportant.bind(this))
         }
-        this._onInput(inputText)
-        inputText = ''
-        break
-      case 'Backspace':
-        inputText = inputText.slice(0, -1)
-        break
-      case 'Tab':
-        inputText += ' '
-        break
-      case 'Esc':
-      case 'Escape':
-        // Hide / show Overlay for "esc" key press.
-        this.tag('Overlay').toggleTransparency()
-        break
-      default:
-        inputText += event.key
-        break
-    }
+        _handleKey(event) {
+          if (event.defaultPrevented) {
+            return // Do nothing if the event was already processed
+          }
 
-    if (inputText !== currentInputText) {
-      this.tag('Text').text = inputText
-    }
+          let isOverlay = this.tag('Overlay').isShowing
+          let currentInputText = this.tag('Text').text
+          let inputText = currentInputText
 
-    // Cancel the default action to avoid it being handled twice
-    event.preventDefault()
-  }
+          switch (event.key) {
+            case 'Left':
+            case 'ArrowLeft':
+            case 'Right':
+            case 'ArrowRight':
+            case 'Control':
+            case 'Alt':
+            case 'Shift':
+            case 'Meta':
+            case 'Delete':
+            case 'Down':
+            case 'ArrowDown':
+            case 'Up':
+            case 'ArrowUp':
+              // Quit when this doesn't handle the key event.
+              return
+            case 'PageDown':
+              if (!isOverlay && this._inputHistoryIndex < this._inputHistory.length)
+                inputText = this._inputHistory[++this._inputHistoryIndex]
+              break
+            case 'PageUp':
+              if (!isOverlay && this._inputHistoryIndex > 0)
+                inputText = this._inputHistory[--this._inputHistoryIndex]
+              break
+            case 'Enter':
+              if (!isOverlay && inputText) {
+                this._inputHistory.push(inputText)
+                this._inputHistoryIndex = this._inputHistory.length
+                try {
+                  this._logDefault(`[Input] ${inputText}`)
+                  this._runtime.push(inputText)
+                } catch (e) {
+                  this._logCritical(e.message)
+                }
+                inputText = ''
+              }
+              break
+            case 'Backspace':
+              if (!isOverlay) inputText = inputText.slice(0, -1)
+              break
+            case 'Tab':
+              if (!isOverlay) inputText += ' '
+              break
+            case 'Esc':
+            case 'Escape':
+              // Hide / show Overlay for "esc" key press.
+              if (isOverlay) this.tag('Overlay').hide()
+              else this.tag('Overlay').show()
+              break
+            case 'F1':
+              this._scriptFile = Utils.asset('scripts/messenger.json')
+              this._setState('InScript')
+              break
+            default:
+              if (!isOverlay) inputText += event.key
+              break
+          }
 
-  _getFocused() {
-    return this.tag('Log')
-  }
+          if (inputText !== currentInputText) {
+            this.tag('Text').text = inputText
+          }
 
-  log(level, message) {
-    switch (level) {
-      case LogLevel.Error:
-        console.error(message)
-        this.tag('Log').add(message, LineStyle.Red)
-        break
-      case LogLevel.Response:
-        console.log(message)
-        this.tag('Log').add(message, LineStyle.Default)
-        break
-      case LogLevel.Event:
-        console.log(message)
-        this.tag('Log').add(message, LineStyle.Default)
-        break
-    }
-  }
+          // Cancel the default action to avoid it being handled twice
+          event.preventDefault()
+        }
+        _getFocused() {
+          return this.tag('Log')
+        }
+      },
+      class InScript extends this {
+        $enter() {
+          this.tag('Log').clear()
+          this.tag('Text').text = ''
 
-  _onInput(input) {
-    try {
-      let match
+          this._runtime = new FileScript(this._scriptFile, this._logImportant.bind(this))
+        }
+        $exit() {}
+        _getFocused() {
+          return this.tag('Log')
+        }
+        _handleKey(event) {
+          if (event.defaultPrevented) {
+            return // Do nothing if the event was already processed
+          }
 
-      if ((match = input.match(/(.+) +new/))) {
-        this.tag('Log').add(`User input: ${match[1]} new`, LineStyle.Green)
-        this._admin.new(match[1])
-      } else if ((match = input.match(/(.+) +delete/))) {
-        this.tag('Log').add(`User input: ${match[1]} delete`, LineStyle.Green)
-        this._admin.delete(match[1])
-      } else if ((match = input.match(/(.+) +on +(.+) +(.+)/))) {
-        this.tag('Log').add(`User input: ${match[1]} on ${match[2]} ${match[3]}`, LineStyle.Green)
-        this._admin.on(match[1], match[2], match[3])
-      } else if ((match = input.match(/(.+) +off +(.+) +(.+)/))) {
-        this.tag('Log').add(`User input: ${match[1]} off ${match[2]} ${match[3]}`, LineStyle.Green)
-        this._admin.off(match[1], match[2], match[3])
-      } else if ((match = input.match(/(.+) +call +(.+) +(.+) +(.+)/))) {
-        this.tag('Log').add(
-          `User input: ${match[1]} call ${match[2]} ${match[3]} ${match[4]}`,
-          LineStyle.Green
-        )
-        this._admin.call(match[1], match[2], match[3], match[4])
-      } else if ((match = input.match(/(.+) +call +(.+) +(.+)/))) {
-        this.tag('Log').add(`User input: ${match[1]} call ${match[2]} ${match[3]}`, LineStyle.Green)
-        this._admin.call(match[1], match[2], match[3])
-      } else {
-        this.log(LogLevel.Error, `Bad input '${input}'. Press Esc to show Help`)
-      }
-    } catch (e) {
-      let message
+          let isOverlay = this.tag('Overlay').isShowing
 
-      if (e instanceof IdDoesntExistError) {
-        message = `Id '${e.id}' doesn't exist. Use Cmd 'new' to create it. Press Esc to show Help`
-      } else if (e instanceof IdExistsError) {
-        message = `Id '${e.id}' already exists. Use Cmd 'delete' to delete it. Press Esc to show Help`
-      } else if (e instanceof JsonParseError) {
-        message = `Params '${e.json}' isn't a valid JSON object. Press Esc to show Help`
-      } else {
-        message = e.message()
-      }
+          switch (event.key) {
+            case 'Down':
+            case 'ArrowDown':
+            case 'Up':
+            case 'ArrowUp':
+              // Quit when this doesn't handle the key event.
+              return
+            case 'Esc':
+            case 'Escape':
+              // Hide / show Overlay for "esc" key press.
+              if (isOverlay) this.tag('Overlay').hide()
+              else this.tag('Overlay').show()
+              break
+            default:
+              if (!isOverlay) this._setState('UserInput')
+              break
+          }
 
-      this.log(LogLevel.Error, message)
-    }
+          // Cancel the default action to avoid it being handled twice
+          event.preventDefault()
+        }
+      },
+    ]
   }
 }

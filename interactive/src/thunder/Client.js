@@ -4,6 +4,7 @@ export class JsonParseError extends Error {
   constructor(json) {
     super()
     this.json = json
+    this.message = `Isn't a valid JSON object: '${json}'`
   }
 }
 
@@ -14,7 +15,7 @@ const thunderConfig = {
   debug: true,
 }
 
-export default class ThunderClient {
+export default class Client {
   constructor() {
     this._thunder = ThunderJS(thunderConfig)
 
@@ -40,7 +41,20 @@ export default class ThunderClient {
   }
 
   on(callsign, event, callback, error) {
-    let id = callsign + '.' + event
+    // ThunderJS accepts { event: ..., prefix: ... } or event name
+    if (typeof event === 'string' && event[0] === '{') {
+      let str = event
+      try {
+        event = JSON.parse(str)
+      } catch (e) {
+        throw new JsonParseError(str)
+      }
+      if (!event || typeof event !== 'object') {
+        throw new JsonParseError(str)
+      }
+    }
+
+    let id = callsign + '.' + (typeof event === 'object' ? JSON.stringify(event) : event)
 
     // Cleanup, if needed
     if (this._listeners.has(id)) {
@@ -58,5 +72,12 @@ export default class ThunderClient {
       this._listeners.get(id).dispose()
       this._listeners.delete(id)
     }
+  }
+
+  clear() {
+    for (let v of Object.values(this._listeners)) {
+      v.dispose()
+    }
+    this._listeners.clear()
   }
 }

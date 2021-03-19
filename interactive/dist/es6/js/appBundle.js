@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Fri, 12 Mar 2021 16:50:06 GMT
+ * Generated: Fri, 19 Mar 2021 14:33:04 GMT
  */
 
 var APP_interactive = (function () {
@@ -5733,7 +5733,7 @@ var APP_interactive = (function () {
             text: {
               text: '',
               fontFace: 'Regular',
-              fontSize: 24,
+              fontSize: 20,
               textColor: 0xbbffffff,
             },
           },
@@ -5757,10 +5757,22 @@ var APP_interactive = (function () {
       }
     }
 
-    toggleTransparency() {
+    get isShowing() {
+      return this.alpha > 0
+    }
+
+    show() {
       this.patch({
         smooth: {
-          alpha: [this.alpha > 0 ? 0 : 1, { duration: 0.2, timingFunction: 'ease-in' }],
+          alpha: [1, { duration: 0.2, timingFunction: 'ease-in' }],
+        },
+      });
+    }
+
+    hide() {
+      this.patch({
+        smooth: {
+          alpha: [0, { duration: 0.2, timingFunction: 'ease-in' }],
         },
       });
     }
@@ -5825,7 +5837,7 @@ var APP_interactive = (function () {
     },
   });
 
-  const LineFontSize = 16;
+  const LineFontSize = 14;
 
   class TextBox extends Lightning.Component {
     static _template() {
@@ -5854,6 +5866,11 @@ var APP_interactive = (function () {
           fontSize: LineFontSize,
         },
       });
+    }
+
+    clear() {
+      this.tag('Rows').childList.clear();
+      this.tag('Rows').y = 0;
     }
 
     _handleUp() {
@@ -6099,25 +6116,28 @@ var APP_interactive = (function () {
     DeviceInfo,
   };
 
-  function listener(plugin, event, callback, errorCallback) {
+  function listener(plugin, listenerArg, callback, errorCallback) {
     const thunder = this;
-    const index = register.call(this, plugin, event, callback, errorCallback);
+    var listenerCfg = typeof listenerArg == "string" ? { event: listenerArg } : listenerArg;
+    listenerCfg.prefix = listenerCfg.prefix || "client";
+    listenerCfg.suffix = listenerCfg.suffix || "events";
+    const index = register.call(this, plugin, listenerCfg, callback, errorCallback);
     return {
       dispose() {
-        const listener_id = makeListenerId(plugin, event);
+        const listener_id = makeListenerId(plugin, listenerCfg);
         if (listeners[listener_id] === undefined) return
         listeners[listener_id].splice(index, 1);
         if (listeners[listener_id].length === 0) {
-          unregister.call(thunder, plugin, event, errorCallback);
+          unregister.call(thunder, plugin, listenerCfg, errorCallback);
         }
       },
     }
   }
-  const makeListenerId = (plugin, event) => {
-    return ['client', plugin, 'events', event].join('.')
+  const makeListenerId = (plugin, listenerCfg) => {
+    return [listenerCfg.prefix, plugin, listenerCfg.suffix, listenerCfg.event].join('.')
   };
-  const register = function(plugin, event, callback, errorCallback) {
-    const listener_id = makeListenerId(plugin, event);
+  const register = function(plugin, listenerCfg, callback, errorCallback) {
+    const listener_id = makeListenerId(plugin, listenerCfg);
     if (!listeners[listener_id]) {
       listeners[listener_id] = [];
       if (plugin !== 'ThunderJS') {
@@ -6127,7 +6147,7 @@ var APP_interactive = (function () {
           .slice(0, -1)
           .join('.');
         const params = {
-          event,
+          event: listenerCfg.event,
           id: request_id,
         };
         this.api.request(plugin, method, params).catch(e => {
@@ -6138,8 +6158,8 @@ var APP_interactive = (function () {
     listeners[listener_id].push(callback);
     return listeners[listener_id].length - 1
   };
-  const unregister = function(plugin, event, errorCallback) {
-    const listener_id = makeListenerId(plugin, event);
+  const unregister = function(plugin, listenerCfg, errorCallback) {
+    const listener_id = makeListenerId(plugin, listenerCfg);
     delete listeners[listener_id];
     if (plugin !== 'ThunderJS') {
       const method = 'unregister';
@@ -6148,7 +6168,7 @@ var APP_interactive = (function () {
         .slice(0, -1)
         .join('.');
       const params = {
-        event,
+        event: listenerCfg.event,
         id: request_id,
       };
       this.api.request(plugin, method, params).catch(e => {
@@ -6268,6 +6288,7 @@ var APP_interactive = (function () {
     constructor(json) {
       super();
       this.json = json;
+      this.message = `Isn't a valid JSON object: '${json}'`;
     }
   }
 
@@ -6278,7 +6299,7 @@ var APP_interactive = (function () {
     debug: true,
   };
 
-  class ThunderClient {
+  class Client {
     constructor() {
       this._thunder = thunderJS(thunderConfig);
 
@@ -6304,7 +6325,20 @@ var APP_interactive = (function () {
     }
 
     on(callsign, event, callback, error) {
-      let id = callsign + '.' + event;
+      // ThunderJS accepts { event: ..., prefix: ... } or event name
+      if (typeof event === 'string' && event[0] === '{') {
+        let str = event;
+        try {
+          event = JSON.parse(str);
+        } catch (e) {
+          throw new JsonParseError(str)
+        }
+        if (!event || typeof event !== 'object') {
+          throw new JsonParseError(str)
+        }
+      }
+
+      let id = callsign + '.' + (typeof event === 'object' ? JSON.stringify(event) : event);
 
       // Cleanup, if needed
       if (this._listeners.has(id)) {
@@ -6323,12 +6357,20 @@ var APP_interactive = (function () {
         this._listeners.delete(id);
       }
     }
+
+    clear() {
+      for (let v of Object.values(this._listeners)) {
+        v.dispose();
+      }
+      this._listeners.clear();
+    }
   }
 
   class IdDoesntExistError extends Error {
     constructor(id) {
       super();
       this.id = id;
+      this.message = `Id '${id}' doesn't exist`;
     }
   }
 
@@ -6336,41 +6378,13 @@ var APP_interactive = (function () {
     constructor(id) {
       super();
       this.id = id;
+      this.message = `Id '${id}' already exists`;
     }
   }
 
-  class ThunderAdminResponse {
-    constructor(id, callsign, method, params, response) {
-      this.id = id;
-      this.callsign = callsign;
-      this.method = method;
-      this.params = params;
-      this.response = response;
-    }
-  }
-
-  class ThunderAdminEvent {
-    constructor(id, callsign, event, notification) {
-      this.id = id;
-      this.callsign = callsign;
-      this.event = event;
-      this.notification = notification;
-    }
-  }
-
-  class ThunderAdminObserver {
-    onResponse() {}
-    onEvent() {}
-  }
-
-  class ThunderAdmin {
+  class Admin {
     constructor() {
       this._clients = new Map();
-      this._callback = new ThunderAdminObserver();
-    }
-
-    set callback(callback) {
-      this._callback = callback;
     }
 
     _assertExists(id) {
@@ -6383,38 +6397,23 @@ var APP_interactive = (function () {
 
     new(id) {
       this._assertNotExists(id);
-      this._clients.set(id, new ThunderClient());
+      this._clients.set(id, new Client());
     }
 
     delete(id) {
       this._assertExists(id);
+      this._clients.get(id).clear();
       this._clients.delete(id);
     }
 
     call(id, callsign, method, params = {}) {
       this._assertExists(id);
-      this._clients
-        .get(id)
-        .call(callsign, method, params)
-        .then(
-          response =>
-            this._callback.onResponse(
-              new ThunderAdminResponse(id, callsign, method, params, response)
-            ),
-          err =>
-            this._callback.onResponse(new ThunderAdminResponse(id, callsign, method, params, err))
-        );
+      return this._clients.get(id).call(callsign, method, params)
     }
 
-    on(id, callsign, event) {
+    on(id, callsign, event, notificationHandler, errorHandler) {
       this._assertExists(id);
-      this._clients.get(id).on(
-        callsign,
-        event,
-        notification =>
-          this._callback.onEvent(new ThunderAdminEvent(id, callsign, event, notification)),
-        err => this._callback.onEvent(new ThunderAdminEvent(id, callsign, event, err))
-      );
+      this._clients.get(id).on(callsign, event, notificationHandler, errorHandler);
     }
 
     off(id, callsign, event) {
@@ -6423,11 +6422,188 @@ var APP_interactive = (function () {
     }
   }
 
-  const LogLevel = Object.freeze({
-    Error,
-    Response,
-    Event,
-  });
+  class Runtime {
+    constructor(updateListener) {
+      this._admin = new Admin();
+      this._updateListener = updateListener;
+    }
+
+    process(cmd) {
+      let match;
+
+      if ((match = cmd.match(/([^\s]+)\s+new/))) {
+        let id = match[1];
+
+        this._admin.new(id);
+      } else if ((match = cmd.match(/([^\s]+)\s+delete/))) {
+        let id = match[1];
+
+        this._admin.delete(id);
+      } else if ((match = cmd.match(/([^\s]+)\s+on\s+([^\s]+)\s+(.+)/))) {
+        let id = match[1];
+        let callsign = match[2];
+        let event = match[3];
+
+        this._admin.on(
+          id,
+          callsign,
+          event,
+          notification => this.onEvent(notification, id, callsign, event),
+          err => this.onEvent(err, id, callsign, event)
+        );
+      } else if ((match = cmd.match(/([^\s]+)\s+off\s+([^\s]+)\s+(.+)/))) {
+        let id = match[1];
+        let callsign = match[2];
+        let event = match[3];
+
+        this._admin.off(id, callsign, event);
+      } else if ((match = cmd.match(/([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)/))) {
+        let id = match[1];
+        let callsign = match[2];
+        let method = match[3];
+        let params = match[4];
+
+        this._admin.call(id, callsign, method, params).then(
+          response => this.onResponse(response, id, callsign, method, params),
+          err => this.onResponse(err, id, callsign, method, params)
+        );
+      } else if ((match = cmd.match(/([^\s]+)\s+call\s+([^\s]+)\s+(.+)/))) {
+        let id = match[1];
+        let callsign = match[2];
+        let method = match[3];
+
+        this._admin.call(id, callsign, method).then(
+          response => this.onResponse(response, id, callsign, method),
+          err => this.onResponse(err, id, callsign, method)
+        );
+      } else {
+        throw new Error(`Bad cmd '${cmd}'`)
+      }
+    }
+
+    onResponse(response, id, callsign, method, params) {
+      console.log(`Got response for ${method}`);
+
+      this.notify(
+        `Id=${id} Callsign=${callsign} ` +
+          `Method=${method} Params=${JSON.stringify(params)} ` +
+          `Response=${JSON.stringify(response)}`
+      );
+    }
+
+    onEvent(notification, id, callsign, event) {
+      console.log(`Got event ${event}`);
+
+      this.notify(
+        `Id=${id} Callsign=${callsign} Event=${event} ` +
+          `Notification=${JSON.stringify(notification)}`
+      );
+    }
+
+    notify(message) {
+      if (this._updateListener) {
+        this._updateListener(message);
+      }
+    }
+  }
+
+  class FileScript extends Runtime {
+    constructor(file, updateListener) {
+      super(updateListener);
+
+      this._lines = [];
+      this._index = 0;
+      this._interval = 0;
+      this._substitute = new Map();
+
+      this.notify(`Script loading from ${file}`);
+
+      this.load(file).then(this.schedule.bind(this), this.notify.bind(this));
+    }
+
+    load(file) {
+      let _this = this;
+
+      return new Promise(function(resolve, reject) {
+        let xhr = new XMLHttpRequest();
+
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+              try {
+                let json = JSON.parse(xhr.responseText);
+                _this._lines = json.lines;
+                _this._index = 0;
+                _this._interval = json.interval;
+
+                _this.notify(`Script loaded. ${_this._lines.length} lines`);
+
+                resolve();
+              } catch (e) {
+                reject(e);
+              }
+            } else reject(xhr.statusText);
+          }
+        };
+
+        xhr.open('GET', file);
+        xhr.send(null);
+      })
+    }
+
+    schedule() {
+      setTimeout(() => {
+        let cmd = this._lines[this._index++];
+        if (cmd) {
+          try {
+            cmd = cmd.replace(/<<<([^>]+)>>>/g, (match, p1) => {
+              if (this._substitute.has(p1)) return this._substitute.get(p1)
+              return ''
+            });
+
+            this.notify(`Script line: ${cmd}`);
+
+            this.process(cmd);
+          } catch (e) {
+            this.notify(`Error: ${e}`);
+          }
+
+          this.schedule();
+        } else {
+          this.notify('Script Ended');
+        }
+      }, this._interval);
+    }
+
+    addSubstitute(key, value) {
+      if (value && typeof value === 'object') {
+        for (let [k, v] of Object.entries(value)) {
+          this.addSubstitute(key + '.' + k, v);
+        }
+      } else if (typeof value === 'string') {
+        console.debug(`${key} -> ${value}`);
+
+        this._substitute.set(key, value);
+      }
+    }
+
+    onResponse(response, id, callsign, method, params) {
+      super.onResponse(response, id, callsign, method, params);
+
+      this.addSubstitute(`${id}.${callsign}.${method}`, response);
+    }
+
+    onEvent(notification, id, callsign, event) {
+      super.onEvent(notification, id, callsign, event);
+
+      let key = `${id}.${callsign}.${event}`;
+      if (typeof event === 'string' && event[0] === '{') {
+        key = `${id}.${callsign}.${JSON.parse(event).event}`;
+      }
+
+      this.addSubstitute(key, notification);
+    }
+  }
 
   class App extends Lightning.Component {
     static getFonts() {
@@ -6461,16 +6637,17 @@ var APP_interactive = (function () {
           y: 540,
           mainText:
             'Usage: Id Cmd [Args] <Enter>\n\n' +
-            'Id: custom id to identify thunder client\n' +
+            'Id: any id to identify thunder client, ex. 1, a, etc\n' +
             'Cmd: new|delete|call|on|off\n' +
             'Args:\n' +
             '\t\t\t\tcall: Callsign Method [Params]\n' +
-            '\t\t\t\ton: Callsign Event\n\n' +
+            '\t\t\t\ton\\off: Callsign Event\n\n' +
             'Ex.:\n' +
             '\t\t\t\t1 new\n' +
             '\t\t\t\t1 call Controller activate {"callsign":"X"}\n' +
             '\t\t\t\t1 call X join {"user":"Y","room":"Z"}\n' +
-            '\t\t\t\t1 on X onEvent\n',
+            '\t\t\t\t1 on X eventName\n\n' +
+            'Press F1, F2, etc to trigger a built-in test',
           bottomText: 'Show/hide by pressing Esc',
         },
       }
@@ -6480,156 +6657,152 @@ var APP_interactive = (function () {
       this._inputHistory = [];
       this._inputHistoryIndex = 0;
 
-      this._admin = new ThunderAdmin();
-
-      let _this = this;
-      this._admin.callback = new (class extends ThunderAdminObserver {
-        onResponse(response) {
-          _this.log(
-            LogLevel.Response,
-            `Id=${response.id} Callsign=${response.callsign} ` +
-              `Method=${response.method} Params=${JSON.stringify(response.params)} ` +
-              `Response=${JSON.stringify(response)}`
-          );
-        }
-
-        onEvent(event) {
-          _this.log(
-            LogLevel.Event,
-            `Id=${event.id} Callsign=${event.callsign} Event=${event.event} ` +
-              `Notification=${JSON.stringify(event.notification)}`
-          );
-        }
-      })();
+      this._setState('UserInput');
     }
 
-    _handleKey(event) {
-      if (event.defaultPrevented) {
-        return // Do nothing if the event was already processed
-      }
+    _logDefault(message) {
+      console.log(message);
+      this.tag('Log').add(message, LineStyle.Green);
+    }
 
-      let currentInputText = this.tag('Text').text;
-      let inputText = currentInputText;
+    _logImportant(message) {
+      console.warn(message);
+      this.tag('Log').add(message, LineStyle.Default);
+    }
 
-      switch (event.key) {
-        case 'Left':
-        case 'ArrowLeft':
-        case 'Right':
-        case 'ArrowRight':
-        case 'Control':
-        case 'Alt':
-        case 'Shift':
-        case 'Meta':
-        case 'Delete':
-        case 'Down':
-        case 'ArrowDown':
-        case 'Up':
-        case 'ArrowUp':
-          // Quit when this doesn't handle the key event.
-          return
-        case 'PageDown':
-          if (this._inputHistoryIndex < this._inputHistory.length - 1)
-            inputText = this._inputHistory[++this._inputHistoryIndex];
-          break
-        case 'PageUp':
-          if (this._inputHistoryIndex > 0) inputText = this._inputHistory[--this._inputHistoryIndex];
-          break
-        case 'Enter':
-          if (inputText) {
-            this._inputHistory.push(inputText);
-            this._inputHistoryIndex = this._inputHistory.length;
+    _logCritical(message) {
+      console.error(message);
+      this.tag('Log').add(message, LineStyle.Red);
+    }
+
+    static _states() {
+      return [
+        class UserInput extends this {
+          $enter() {
+            this.tag('Log').clear();
+            this.tag('Text').text = '';
+
+            this._runtime = new Runtime(this._logImportant.bind(this));
           }
-          this._onInput(inputText);
-          inputText = '';
-          break
-        case 'Backspace':
-          inputText = inputText.slice(0, -1);
-          break
-        case 'Tab':
-          inputText += ' ';
-          break
-        case 'Esc':
-        case 'Escape':
-          // Hide / show Overlay for "esc" key press.
-          this.tag('Overlay').toggleTransparency();
-          break
-        default:
-          inputText += event.key;
-          break
-      }
+          _handleKey(event) {
+            if (event.defaultPrevented) {
+              return // Do nothing if the event was already processed
+            }
 
-      if (inputText !== currentInputText) {
-        this.tag('Text').text = inputText;
-      }
+            let isOverlay = this.tag('Overlay').isShowing;
+            let currentInputText = this.tag('Text').text;
+            let inputText = currentInputText;
 
-      // Cancel the default action to avoid it being handled twice
-      event.preventDefault();
-    }
+            switch (event.key) {
+              case 'Left':
+              case 'ArrowLeft':
+              case 'Right':
+              case 'ArrowRight':
+              case 'Control':
+              case 'Alt':
+              case 'Shift':
+              case 'Meta':
+              case 'Delete':
+              case 'Down':
+              case 'ArrowDown':
+              case 'Up':
+              case 'ArrowUp':
+                // Quit when this doesn't handle the key event.
+                return
+              case 'PageDown':
+                if (!isOverlay && this._inputHistoryIndex < this._inputHistory.length)
+                  inputText = this._inputHistory[++this._inputHistoryIndex];
+                break
+              case 'PageUp':
+                if (!isOverlay && this._inputHistoryIndex > 0)
+                  inputText = this._inputHistory[--this._inputHistoryIndex];
+                break
+              case 'Enter':
+                if (!isOverlay && inputText) {
+                  this._inputHistory.push(inputText);
+                  this._inputHistoryIndex = this._inputHistory.length;
+                  try {
+                    this._logDefault(`[Input] ${inputText}`);
+                    this._runtime.push(inputText);
+                  } catch (e) {
+                    this._logCritical(e.message);
+                  }
+                  inputText = '';
+                }
+                break
+              case 'Backspace':
+                if (!isOverlay) inputText = inputText.slice(0, -1);
+                break
+              case 'Tab':
+                if (!isOverlay) inputText += ' ';
+                break
+              case 'Esc':
+              case 'Escape':
+                // Hide / show Overlay for "esc" key press.
+                if (isOverlay) this.tag('Overlay').hide();
+                else this.tag('Overlay').show();
+                break
+              case 'F1':
+                this._scriptFile = Utils.asset('scripts/messenger.json');
+                this._setState('InScript');
+                break
+              default:
+                if (!isOverlay) inputText += event.key;
+                break
+            }
 
-    _getFocused() {
-      return this.tag('Log')
-    }
+            if (inputText !== currentInputText) {
+              this.tag('Text').text = inputText;
+            }
 
-    log(level, message) {
-      switch (level) {
-        case LogLevel.Error:
-          console.error(message);
-          this.tag('Log').add(message, LineStyle.Red);
-          break
-        case LogLevel.Response:
-          console.log(message);
-          this.tag('Log').add(message, LineStyle.Default);
-          break
-        case LogLevel.Event:
-          console.log(message);
-          this.tag('Log').add(message, LineStyle.Default);
-          break
-      }
-    }
+            // Cancel the default action to avoid it being handled twice
+            event.preventDefault();
+          }
+          _getFocused() {
+            return this.tag('Log')
+          }
+        },
+        class InScript extends this {
+          $enter() {
+            this.tag('Log').clear();
+            this.tag('Text').text = '';
 
-    _onInput(input) {
-      try {
-        let match;
+            this._runtime = new FileScript(this._scriptFile, this._logImportant.bind(this));
+          }
+          $exit() {}
+          _getFocused() {
+            return this.tag('Log')
+          }
+          _handleKey(event) {
+            if (event.defaultPrevented) {
+              return // Do nothing if the event was already processed
+            }
 
-        if ((match = input.match(/(.+) +new/))) {
-          this.tag('Log').add(`User input: ${match[1]} new`, LineStyle.Green);
-          this._admin.new(match[1]);
-        } else if ((match = input.match(/(.+) +delete/))) {
-          this.tag('Log').add(`User input: ${match[1]} delete`, LineStyle.Green);
-          this._admin.delete(match[1]);
-        } else if ((match = input.match(/(.+) +on +(.+) +(.+)/))) {
-          this.tag('Log').add(`User input: ${match[1]} on ${match[2]} ${match[3]}`, LineStyle.Green);
-          this._admin.on(match[1], match[2], match[3]);
-        } else if ((match = input.match(/(.+) +off +(.+) +(.+)/))) {
-          this.tag('Log').add(`User input: ${match[1]} off ${match[2]} ${match[3]}`, LineStyle.Green);
-          this._admin.off(match[1], match[2], match[3]);
-        } else if ((match = input.match(/(.+) +call +(.+) +(.+) +(.+)/))) {
-          this.tag('Log').add(
-            `User input: ${match[1]} call ${match[2]} ${match[3]} ${match[4]}`,
-            LineStyle.Green
-          );
-          this._admin.call(match[1], match[2], match[3], match[4]);
-        } else if ((match = input.match(/(.+) +call +(.+) +(.+)/))) {
-          this.tag('Log').add(`User input: ${match[1]} call ${match[2]} ${match[3]}`, LineStyle.Green);
-          this._admin.call(match[1], match[2], match[3]);
-        } else {
-          this.log(LogLevel.Error, `Bad input '${input}'. Press Esc to show Help`);
-        }
-      } catch (e) {
-        let message;
+            let isOverlay = this.tag('Overlay').isShowing;
 
-        if (e instanceof IdDoesntExistError) {
-          message = `Id '${e.id}' doesn't exist. Use Cmd 'new' to create it. Press Esc to show Help`;
-        } else if (e instanceof IdExistsError) {
-          message = `Id '${e.id}' already exists. Use Cmd 'delete' to delete it. Press Esc to show Help`;
-        } else if (e instanceof JsonParseError) {
-          message = `Params '${e.json}' isn't a valid JSON object. Press Esc to show Help`;
-        } else {
-          message = e.message();
-        }
+            switch (event.key) {
+              case 'Down':
+              case 'ArrowDown':
+              case 'Up':
+              case 'ArrowUp':
+                // Quit when this doesn't handle the key event.
+                return
+              case 'Esc':
+              case 'Escape':
+                // Hide / show Overlay for "esc" key press.
+                if (isOverlay) this.tag('Overlay').hide();
+                else this.tag('Overlay').show();
+                break
+              default:
+                if (!isOverlay) this._setState('UserInput');
+                break
+            }
 
-        this.log(LogLevel.Error, message);
-      }
+            // Cancel the default action to avoid it being handled twice
+            event.preventDefault();
+          }
+        },
+      ]
     }
   }
 
