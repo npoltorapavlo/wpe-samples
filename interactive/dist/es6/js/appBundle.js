@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Fri, 19 Mar 2021 14:33:04 GMT
+ * Generated: Mon, 22 Mar 2021 14:57:34 GMT
  */
 
 var APP_interactive = (function () {
@@ -6723,7 +6723,7 @@ var APP_interactive = (function () {
                   this._inputHistoryIndex = this._inputHistory.length;
                   try {
                     this._logDefault(`[Input] ${inputText}`);
-                    this._runtime.push(inputText);
+                    this._runtime.process(inputText);
                   } catch (e) {
                     this._logCritical(e.message);
                   }

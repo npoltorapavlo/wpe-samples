@@ -124,7 +124,7 @@ export default class App extends Lightning.Component {
                 this._inputHistoryIndex = this._inputHistory.length
                 try {
                   this._logDefault(`[Input] ${inputText}`)
-                  this._runtime.push(inputText)
+                  this._runtime.process(inputText)
                 } catch (e) {
                   this._logCritical(e.message)
                 }
