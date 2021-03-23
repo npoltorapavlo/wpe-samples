@@ -10,6 +10,7 @@
     "2 on Messenger roomupdate",
     "3 call Controller activate {\"callsign\":\"Messenger\"}",
     "3 on Messenger roomupdate",
+    "1 call Messenger create {\"room\":\"Test\",\"urlRegex\":\"*://*:*\"}",
     "1 call Messenger join {\"user\":\"Host\",\"room\":\"Test\"}",
     "1 on Messenger {\"event\":\"userupdate\",\"prefix\":\"<<<1.Messenger.join.roomid>>>\"}",
     "1 on Messenger {\"event\":\"message\",\"prefix\":\"<<<1.Messenger.join.roomid>>>\"}",
