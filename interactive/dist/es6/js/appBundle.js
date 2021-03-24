@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Tue, 23 Mar 2021 18:57:44 GMT
+ * Generated: Wed, 24 Mar 2021 12:50:17 GMT
  */
 
 var APP_interactive = (function () {
@@ -6615,8 +6615,8 @@ var APP_interactive = (function () {
         Background: {
           w: 1920,
           h: 1080,
-          color: 0xfffbb03b,
-          src: Utils.asset('images/background.png'),
+          color: 0xff222222,
+          rect: true,
         },
         Log: {
           type: TextBox,

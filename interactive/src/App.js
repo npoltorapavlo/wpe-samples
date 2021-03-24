@@ -16,8 +16,8 @@ export default class App extends Lightning.Component {
       Background: {
         w: 1920,
         h: 1080,
-        color: 0xfffbb03b,
-        src: Utils.asset('images/background.png'),
+        color: 0xff222222,
+        rect: true,
       },
       Log: {
         type: TextBox,

@@ -5,7 +5,7 @@
       "useImageWorker": true
     },
     "debug": false,
-    "version": "1.0.33"
+    "version": "1.0.34"
   },
   "platformSettings": {
     "path": "./static",
