@@ -1,0 +1,21 @@
+{
+  "interval": 500,
+  "lines": [
+    "1 new",
+    "1 call Controller activate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "1 on org.rdk.PersistentStore onStorageExceeded",
+    "1 call org.rdk.PersistentStore setValue {\"namespace\":\"dbremove\",\"key\":\"key\",\"value\":\"value\"}",
+    "2 new",
+    "2 call Controller activate {\"callsign\":\"org.rdk.Warehouse\"}",
+    "2 call org.rdk.Warehouse lightReset",
+    "2 call Controller deactivate {\"callsign\":\"org.rdk.Warehouse\"}",
+    "2 delete",
+    "1 call org.rdk.PersistentStore getValue {\"namespace\":\"dbremove\",\"key\":\"key\"}",
+    "1 call org.rdk.PersistentStore setValue {\"namespace\":\"dbremove\",\"key\":\"new key\",\"value\":\"new value\"}",
+    "1 call org.rdk.PersistentStore getValue {\"namespace\":\"dbremove\",\"key\":\"new key\"}",
+    "1 call org.rdk.PersistentStore deleteNamespace {\"namespace\":\"dbremove\"}",
+    "1 off org.rdk.PersistentStore onStorageExceeded",
+    "1 call Controller deactivate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "1 delete"
+  ]
+}

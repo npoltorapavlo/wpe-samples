@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Thu, 01 Apr 2021 14:20:57 GMT
+ * Generated: Thu, 01 Apr 2021 17:54:16 GMT
  */
 
 var APP_interactive = (function () {
@@ -6431,15 +6431,15 @@ var APP_interactive = (function () {
     process(cmd) {
       let match;
 
-      if ((match = cmd.match(/([^\s]+)\s+new/))) {
+      if ((match = cmd.match(/^([^\s]+)\s+new$/))) {
         let id = match[1];
 
         this._admin.new(id);
-      } else if ((match = cmd.match(/([^\s]+)\s+delete/))) {
+      } else if ((match = cmd.match(/^([^\s]+)\s+delete$/))) {
         let id = match[1];
 
         this._admin.delete(id);
-      } else if ((match = cmd.match(/([^\s]+)\s+on\s+([^\s]+)\s+(.+)/))) {
+      } else if ((match = cmd.match(/^([^\s]+)\s+on\s+([^\s]+)\s+(.+)$/))) {
         let id = match[1];
         let callsign = match[2];
         let event = match[3];
@@ -6451,13 +6451,13 @@ var APP_interactive = (function () {
           notification => this.onEvent(notification, id, callsign, event),
           err => this.onEvent(err, id, callsign, event)
         );
-      } else if ((match = cmd.match(/([^\s]+)\s+off\s+([^\s]+)\s+(.+)/))) {
+      } else if ((match = cmd.match(/^([^\s]+)\s+off\s+([^\s]+)\s+(.+)$/))) {
         let id = match[1];
         let callsign = match[2];
         let event = match[3];
 
         this._admin.off(id, callsign, event);
-      } else if ((match = cmd.match(/([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)/))) {
+      } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)$/))) {
         let id = match[1];
         let callsign = match[2];
         let method = match[3];
@@ -6467,7 +6467,7 @@ var APP_interactive = (function () {
           response => this.onResponse(response, id, callsign, method, params),
           err => this.onResponse(err, id, callsign, method, params)
         );
-      } else if ((match = cmd.match(/([^\s]+)\s+call\s+([^\s]+)\s+(.+)/))) {
+      } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+(.+)$/))) {
         let id = match[1];
         let callsign = match[2];
         let method = match[3];
@@ -6748,6 +6748,22 @@ var APP_interactive = (function () {
                 break
               case 'F2':
                 this._scriptFile = Utils.asset('scripts/messenger2.json');
+                this._setState('InScript');
+                break
+              case 'F3':
+                this._scriptFile = Utils.asset('scripts/persistent1.json');
+                this._setState('InScript');
+                break
+              case 'F4':
+                this._scriptFile = Utils.asset('scripts/persistent2.json');
+                this._setState('InScript');
+                break
+              case 'F5':
+                this._scriptFile = Utils.asset('scripts/persistent3.json');
+                this._setState('InScript');
+                break
+              case 'F6':
+                this._scriptFile = Utils.asset('scripts/persistent4.json');
                 this._setState('InScript');
                 break
               default:

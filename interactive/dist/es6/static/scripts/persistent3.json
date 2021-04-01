@@ -1,0 +1,27 @@
+{
+  "interval": 500,
+  "lines": [
+    "1 new",
+    "1 call Controller activate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "1 on org.rdk.PersistentStore onStorageExceeded",
+    "1 call org.rdk.PersistentStore setValue {\"namespace\":\"reset\",\"key\":\"key\",\"value\":\"value\"}",
+    "1 off org.rdk.PersistentStore onStorageExceeded",
+    "1 call Controller deactivate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "1 delete",
+    "2 new",
+    "2 call Controller activate {\"callsign\":\"org.rdk.Warehouse\"}",
+    "2 call org.rdk.Warehouse lightReset",
+    "2 call Controller deactivate {\"callsign\":\"org.rdk.Warehouse\"}",
+    "2 delete",
+    "3 new",
+    "3 call Controller activate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "3 on org.rdk.PersistentStore onStorageExceeded",
+    "3 call org.rdk.PersistentStore getValue {\"namespace\":\"reset\",\"key\":\"key\"}",
+    "3 call org.rdk.PersistentStore setValue {\"namespace\":\"reset\",\"key\":\"new key\",\"value\":\"new value\"}",
+    "3 call org.rdk.PersistentStore getValue {\"namespace\":\"reset\",\"key\":\"new key\"}",
+    "3 call org.rdk.PersistentStore deleteNamespace {\"namespace\":\"reset\"}",
+    "3 off org.rdk.PersistentStore onStorageExceeded",
+    "3 call Controller deactivate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "3 delete"
+  ]
+}

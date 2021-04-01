@@ -1,0 +1,20 @@
+{
+  "interval": 500,
+  "lines": [
+    "1 new",
+    "1 call Controller activate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "1 on org.rdk.PersistentStore onStorageExceeded",
+    "1 call org.rdk.PersistentStore setValue {\"namespace\":\"persistence\",\"key\":\"key\",\"value\":\"value\"}",
+    "1 off org.rdk.PersistentStore onStorageExceeded",
+    "1 call Controller deactivate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "1 delete",
+    "2 new",
+    "2 call Controller activate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "2 on org.rdk.PersistentStore onStorageExceeded",
+    "2 call org.rdk.PersistentStore getValue {\"namespace\":\"persistence\",\"key\":\"key\"}",
+    "2 call org.rdk.PersistentStore deleteNamespace {\"namespace\":\"persistence\"}",
+    "2 off org.rdk.PersistentStore onStorageExceeded",
+    "2 call Controller deactivate {\"callsign\":\"org.rdk.PersistentStore\"}",
+    "2 delete"
+  ]
+}

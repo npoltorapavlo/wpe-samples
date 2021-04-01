@@ -151,6 +151,22 @@ export default class App extends Lightning.Component {
               this._scriptFile = Utils.asset('scripts/messenger2.json')
               this._setState('InScript')
               break
+            case 'F3':
+              this._scriptFile = Utils.asset('scripts/persistent1.json')
+              this._setState('InScript')
+              break
+            case 'F4':
+              this._scriptFile = Utils.asset('scripts/persistent2.json')
+              this._setState('InScript')
+              break
+            case 'F5':
+              this._scriptFile = Utils.asset('scripts/persistent3.json')
+              this._setState('InScript')
+              break
+            case 'F6':
+              this._scriptFile = Utils.asset('scripts/persistent4.json')
+              this._setState('InScript')
+              break
             default:
               if (!isOverlay) inputText += event.key
               break

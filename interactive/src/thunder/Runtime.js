@@ -9,15 +9,15 @@ export default class Runtime {
   process(cmd) {
     let match
 
-    if ((match = cmd.match(/([^\s]+)\s+new/))) {
+    if ((match = cmd.match(/^([^\s]+)\s+new$/))) {
       let id = match[1]
 
       this._admin.new(id)
-    } else if ((match = cmd.match(/([^\s]+)\s+delete/))) {
+    } else if ((match = cmd.match(/^([^\s]+)\s+delete$/))) {
       let id = match[1]
 
       this._admin.delete(id)
-    } else if ((match = cmd.match(/([^\s]+)\s+on\s+([^\s]+)\s+(.+)/))) {
+    } else if ((match = cmd.match(/^([^\s]+)\s+on\s+([^\s]+)\s+(.+)$/))) {
       let id = match[1]
       let callsign = match[2]
       let event = match[3]
@@ -29,13 +29,13 @@ export default class Runtime {
         notification => this.onEvent(notification, id, callsign, event),
         err => this.onEvent(err, id, callsign, event)
       )
-    } else if ((match = cmd.match(/([^\s]+)\s+off\s+([^\s]+)\s+(.+)/))) {
+    } else if ((match = cmd.match(/^([^\s]+)\s+off\s+([^\s]+)\s+(.+)$/))) {
       let id = match[1]
       let callsign = match[2]
       let event = match[3]
 
       this._admin.off(id, callsign, event)
-    } else if ((match = cmd.match(/([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)/))) {
+    } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)$/))) {
       let id = match[1]
       let callsign = match[2]
       let method = match[3]
@@ -45,7 +45,7 @@ export default class Runtime {
         response => this.onResponse(response, id, callsign, method, params),
         err => this.onResponse(err, id, callsign, method, params)
       )
-    } else if ((match = cmd.match(/([^\s]+)\s+call\s+([^\s]+)\s+(.+)/))) {
+    } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+(.+)$/))) {
       let id = match[1]
       let callsign = match[2]
       let method = match[3]
