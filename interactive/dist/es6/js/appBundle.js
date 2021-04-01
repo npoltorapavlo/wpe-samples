@@ -3,7 +3,7 @@
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Wed, 24 Mar 2021 12:50:17 GMT
+ * Generated: Thu, 01 Apr 2021 14:20:57 GMT
  */
 
 var APP_interactive = (function () {
@@ -6743,7 +6743,11 @@ var APP_interactive = (function () {
                 else this.tag('Overlay').show();
                 break
               case 'F1':
-                this._scriptFile = Utils.asset('scripts/messenger.json');
+                this._scriptFile = Utils.asset('scripts/messenger1.json');
+                this._setState('InScript');
+                break
+              case 'F2':
+                this._scriptFile = Utils.asset('scripts/messenger2.json');
                 this._setState('InScript');
                 break
               default:

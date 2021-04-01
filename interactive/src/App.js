@@ -144,7 +144,11 @@ export default class App extends Lightning.Component {
               else this.tag('Overlay').show()
               break
             case 'F1':
-              this._scriptFile = Utils.asset('scripts/messenger.json')
+              this._scriptFile = Utils.asset('scripts/messenger1.json')
+              this._setState('InScript')
+              break
+            case 'F2':
+              this._scriptFile = Utils.asset('scripts/messenger2.json')
               this._setState('InScript')
               break
             default:
