@@ -1,9 +1,9 @@
 /**
- * App version: 1.0.37
+ * App version: 1.0.38
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Fri, 02 Apr 2021 11:47:48 GMT
+ * Generated: Tue, 13 Apr 2021 14:12:39 GMT
  */
 
 var APP_interactive = (function () {
@@ -6764,6 +6764,10 @@ var APP_interactive = (function () {
                 break
               case 'F6':
                 this._scriptFile = Utils.asset('scripts/persistent4.json');
+                this._setState('InScript');
+                break
+              case 'F7':
+                this._scriptFile = Utils.asset('scripts/usb1.json');
                 this._setState('InScript');
                 break
               default:
