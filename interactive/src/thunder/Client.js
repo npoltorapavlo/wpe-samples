@@ -1,13 +1,5 @@
 import ThunderJS from 'ThunderJS'
 
-export class JsonParseError extends Error {
-  constructor(json) {
-    super()
-    this.json = json
-    this.message = `Isn't a valid JSON object: '${json}'`
-  }
-}
-
 const thunderConfig = {
   host: '127.0.0.1',
   port: 9998,
@@ -18,42 +10,14 @@ const thunderConfig = {
 export default class Client {
   constructor() {
     this._thunder = ThunderJS(thunderConfig)
-
-    // Collection of ThunderJS listeners
     this._listeners = new Map()
   }
 
   call(callsign, method, params = {}) {
-    // ThunderJS accepts JSON objects
-    if (typeof params === 'string') {
-      let str = params
-      try {
-        params = JSON.parse(str)
-      } catch (e) {
-        throw new JsonParseError(str)
-      }
-      if (!params || typeof params !== 'object') {
-        throw new JsonParseError(str)
-      }
-    }
-
     return this._thunder.call(callsign, method, params)
   }
 
   on(callsign, event, callback, error) {
-    // ThunderJS accepts { event: ..., prefix: ... } or event name
-    if (typeof event === 'string' && event[0] === '{') {
-      let str = event
-      try {
-        event = JSON.parse(str)
-      } catch (e) {
-        throw new JsonParseError(str)
-      }
-      if (!event || typeof event !== 'object') {
-        throw new JsonParseError(str)
-      }
-    }
-
     let id = callsign + '.' + (typeof event === 'object' ? JSON.stringify(event) : event)
 
     // Cleanup, if needed
@@ -65,7 +29,7 @@ export default class Client {
   }
 
   off(callsign, event) {
-    let id = callsign + '.' + event
+    let id = callsign + '.' + (typeof event === 'object' ? JSON.stringify(event) : event)
 
     // To unsubscribe, ThunderJS provides 'dispose'
     if (this._listeners.has(id)) {
@@ -75,9 +39,12 @@ export default class Client {
   }
 
   clear() {
-    for (let v of Object.values(this._listeners)) {
-      v.dispose()
-    }
+    console.log('cleaning listeners')
+    this._listeners.forEach((value, key) => {
+      console.log(`cleaning listener ${key}`)
+      value.dispose()
+    })
+
     this._listeners.clear()
   }
 }
