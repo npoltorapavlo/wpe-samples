@@ -4,7 +4,8 @@ import Overlay from './components/Overlay'
 import TextLine from './components/TextLine'
 import TextBox, { LineStyle } from './components/TextBox'
 import Runtime from './thunder/Runtime'
-import FileScript from './thunder/FileScript'
+import ScriptRuntime from './thunder/ScriptRuntime'
+import Observer from './thunder/Observer'
 
 export default class App extends Lightning.Component {
   static getFonts() {
@@ -58,20 +59,53 @@ export default class App extends Lightning.Component {
     this._inputHistory = []
     this._inputHistoryIndex = 0
 
+    let _this = this
+    this._runtimeObserver = new (class extends Observer {
+      onResponse(response, cmd) {
+        _this._logDefault(
+          `Id=${cmd.id} Callsign=${cmd.callsign} ` +
+            `Method=${cmd.method} Params=${JSON.stringify(cmd.params)} ` +
+            `Response=${JSON.stringify(response)}`
+        )
+      }
+
+      onEvent(notification, cmd) {
+        _this._logDefault(
+          `Id=${cmd.id} Callsign=${cmd.callsign} Event=${cmd.eventName} ` +
+            `Notification=${JSON.stringify(notification)}`
+        )
+      }
+
+      onCommand(cmd) {
+        _this._logDefault(`Command: ${cmd}`)
+      }
+
+      onCommandError(err) {
+        _this._logError(`${err}`)
+      }
+
+      onScriptLoadError(err) {
+        _this._logError(`Script load error: ${err}`)
+      }
+
+      onScriptStart(script) {
+        _this._logDefault(`Script loaded from: ${script.filename} (${script.lines.length} lines)`)
+      }
+
+      onScriptEnd() {
+        _this._logDefault('Script Ended')
+      }
+    })()
+
     this._setState('UserInput')
   }
 
   _logDefault(message) {
     console.log(message)
-    this.tag('Log').add(message, LineStyle.Green)
-  }
-
-  _logImportant(message) {
-    console.warn(message)
     this.tag('Log').add(message, LineStyle.Default)
   }
 
-  _logCritical(message) {
+  _logError(message) {
     console.error(message)
     this.tag('Log').add(message, LineStyle.Red)
   }
@@ -83,7 +117,9 @@ export default class App extends Lightning.Component {
           this.tag('Log').clear()
           this.tag('Text').text = ''
 
-          this._runtime = new Runtime(this._logImportant.bind(this))
+          if (this._runtime) this._runtime.clear()
+          this._runtime = new Runtime()
+          this._runtime.registerObserver(this._runtimeObserver)
         }
         _handleKey(event) {
           if (event.defaultPrevented) {
@@ -123,10 +159,9 @@ export default class App extends Lightning.Component {
                 this._inputHistory.push(inputText)
                 this._inputHistoryIndex = this._inputHistory.length
                 try {
-                  this._logDefault(`[Input] ${inputText}`)
                   this._runtime.process(inputText)
                 } catch (e) {
-                  this._logCritical(e.message)
+                  this._logError(e.message)
                 }
                 inputText = ''
               }
@@ -192,7 +227,9 @@ export default class App extends Lightning.Component {
           this.tag('Log').clear()
           this.tag('Text').text = ''
 
-          this._runtime = new FileScript(this._scriptFile, this._logImportant.bind(this))
+          if (this._runtime) this._runtime.clear()
+          this._runtime = new ScriptRuntime(this._scriptFile)
+          this._runtime.registerObserver(this._runtimeObserver)
         }
         $exit() {}
         _getFocused() {

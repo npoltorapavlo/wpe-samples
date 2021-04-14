@@ -1,9 +1,9 @@
 /**
- * App version: 1.0.38
+ * App version: 1.0.43
  * SDK version: 4.2.1
  * CLI version: 2.4.0
  *
- * Generated: Tue, 13 Apr 2021 14:12:39 GMT
+ * Generated: Wed, 14 Apr 2021 14:34:57 GMT
  */
 
 var APP_interactive = (function () {
@@ -6284,14 +6284,6 @@ var APP_interactive = (function () {
     })
   };
 
-  class JsonParseError extends Error {
-    constructor(json) {
-      super();
-      this.json = json;
-      this.message = `Isn't a valid JSON object: '${json}'`;
-    }
-  }
-
   const thunderConfig = {
     host: '127.0.0.1',
     port: 9998,
@@ -6302,42 +6294,14 @@ var APP_interactive = (function () {
   class Client {
     constructor() {
       this._thunder = thunderJS(thunderConfig);
-
-      // Collection of ThunderJS listeners
       this._listeners = new Map();
     }
 
     call(callsign, method, params = {}) {
-      // ThunderJS accepts JSON objects
-      if (typeof params === 'string') {
-        let str = params;
-        try {
-          params = JSON.parse(str);
-        } catch (e) {
-          throw new JsonParseError(str)
-        }
-        if (!params || typeof params !== 'object') {
-          throw new JsonParseError(str)
-        }
-      }
-
       return this._thunder.call(callsign, method, params)
     }
 
     on(callsign, event, callback, error) {
-      // ThunderJS accepts { event: ..., prefix: ... } or event name
-      if (typeof event === 'string' && event[0] === '{') {
-        let str = event;
-        try {
-          event = JSON.parse(str);
-        } catch (e) {
-          throw new JsonParseError(str)
-        }
-        if (!event || typeof event !== 'object') {
-          throw new JsonParseError(str)
-        }
-      }
-
       let id = callsign + '.' + (typeof event === 'object' ? JSON.stringify(event) : event);
 
       // Cleanup, if needed
@@ -6349,7 +6313,7 @@ var APP_interactive = (function () {
     }
 
     off(callsign, event) {
-      let id = callsign + '.' + event;
+      let id = callsign + '.' + (typeof event === 'object' ? JSON.stringify(event) : event);
 
       // To unsubscribe, ThunderJS provides 'dispose'
       if (this._listeners.has(id)) {
@@ -6359,40 +6323,27 @@ var APP_interactive = (function () {
     }
 
     clear() {
-      for (let v of Object.values(this._listeners)) {
-        v.dispose();
-      }
+      console.log('cleaning listeners');
+      this._listeners.forEach((value, key) => {
+        console.log(`cleaning listener ${key}`);
+        value.dispose();
+      });
+
       this._listeners.clear();
     }
   }
 
-  class IdDoesntExistError extends Error {
-    constructor(id) {
-      super();
-      this.id = id;
-      this.message = `Id '${id}' doesn't exist`;
-    }
-  }
-
-  class IdExistsError extends Error {
-    constructor(id) {
-      super();
-      this.id = id;
-      this.message = `Id '${id}' already exists`;
-    }
-  }
-
-  class Admin {
+  class ClientPool {
     constructor() {
       this._clients = new Map();
     }
 
     _assertExists(id) {
-      if (!this._clients.has(id)) throw new IdDoesntExistError(id)
+      if (!this._clients.has(id)) throw new Error(`Id '${id}' doesn't exist`)
     }
 
     _assertNotExists(id) {
-      if (this._clients.has(id)) throw new IdExistsError(id)
+      if (this._clients.has(id)) throw new Error(`Id '${id}' already exists`)
     }
 
     new(id) {
@@ -6406,173 +6357,202 @@ var APP_interactive = (function () {
       this._clients.delete(id);
     }
 
-    call(id, callsign, method, params = {}) {
+    get(id) {
       this._assertExists(id);
-      return this._clients.get(id).call(callsign, method, params)
+      return this._clients.get(id)
     }
 
-    on(id, callsign, event, notificationHandler, errorHandler) {
-      this._assertExists(id);
-      this._clients.get(id).on(callsign, event, notificationHandler, errorHandler);
+    clear() {
+      console.log('cleaning clients');
+      this._clients.forEach((value, key) => {
+        console.log(`cleaning client ${key}`);
+        value.clear();
+      });
+
+      this._clients.clear();
+    }
+  }
+
+  class Command {
+    constructor(cmd) {
+      if (cmd) this.fromString(cmd);
     }
 
-    off(id, callsign, event) {
-      this._assertExists(id);
-      this._clients.get(id).off(callsign, event);
+    get id() {
+      return this._id
+    }
+
+    set id(value) {
+      this._id = value;
+    }
+
+    get type() {
+      return this._type
+    }
+
+    set type(value) {
+      this._type = value;
+    }
+
+    get method() {
+      return this._method
+    }
+
+    set method(value) {
+      this._method = value;
+    }
+
+    get callsign() {
+      return this._callsign
+    }
+
+    set callsign(value) {
+      this._callsign = value;
+    }
+
+    get params() {
+      return this._params
+    }
+
+    set params(value) {
+      // ThunderJS accepts JSON objects
+      if (typeof value === 'string') {
+        this._params = JSON.parse(value);
+      } else {
+        this._params = value;
+      }
+    }
+
+    get event() {
+      return this._event
+    }
+
+    get eventName() {
+      if (typeof this._event === 'string') return this._event
+      return this._event.event
+    }
+
+    set event(value) {
+      // ThunderJS accepts { event: ..., prefix: ... } or event name
+      if (typeof value === 'string' && value[0] === '{') {
+        this._event = JSON.parse(value);
+      } else {
+        this._event = value;
+      }
+    }
+
+    fromString(cmd) {
+      let match;
+
+      if ((match = cmd.match(/^([^\s]+)\s+new$/))) {
+        this.id = match[1];
+        this.type = 'new';
+      } else if ((match = cmd.match(/^([^\s]+)\s+delete$/))) {
+        this.id = match[1];
+        this.type = 'delete';
+      } else if ((match = cmd.match(/^([^\s]+)\s+on\s+([^\s]+)\s+(.+)$/))) {
+        this.id = match[1];
+        this.type = 'on';
+        this.callsign = match[2];
+        this.event = match[3];
+      } else if ((match = cmd.match(/^([^\s]+)\s+off\s+([^\s]+)\s+(.+)$/))) {
+        this.id = match[1];
+        this.type = 'off';
+        this.callsign = match[2];
+        this.event = match[3];
+      } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)$/))) {
+        this.id = match[1];
+        this.type = 'call';
+        this.callsign = match[2];
+        this.method = match[3];
+        this.params = match[4];
+      } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+(.+)$/))) {
+        this.id = match[1];
+        this.type = 'call';
+        this.callsign = match[2];
+        this.method = match[3];
+        this.params = {};
+      } else {
+        throw new Error(`invalid input '${cmd}'`)
+      }
+    }
+
+    toArray() {
+      switch (this.type) {
+        case 'new':
+        case 'delete':
+          return [this.id, this.type]
+        case 'on':
+        case 'off':
+          return [this.id, this.type, this.callsign, this.event]
+        case 'call':
+          return [this.id, this.type, this.callsign, this.method, this.params]
+        default:
+          return null
+      }
     }
   }
 
   class Runtime {
-    constructor(updateListener) {
-      this._admin = new Admin();
-      this._updateListener = updateListener;
-    }
-
-    process(cmd) {
-      let match;
-
-      if ((match = cmd.match(/^([^\s]+)\s+new$/))) {
-        let id = match[1];
-
-        this._admin.new(id);
-      } else if ((match = cmd.match(/^([^\s]+)\s+delete$/))) {
-        let id = match[1];
-
-        this._admin.delete(id);
-      } else if ((match = cmd.match(/^([^\s]+)\s+on\s+([^\s]+)\s+(.+)$/))) {
-        let id = match[1];
-        let callsign = match[2];
-        let event = match[3];
-
-        this._admin.on(
-          id,
-          callsign,
-          event,
-          notification => this.onEvent(notification, id, callsign, event),
-          err => this.onEvent(err, id, callsign, event)
-        );
-      } else if ((match = cmd.match(/^([^\s]+)\s+off\s+([^\s]+)\s+(.+)$/))) {
-        let id = match[1];
-        let callsign = match[2];
-        let event = match[3];
-
-        this._admin.off(id, callsign, event);
-      } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)$/))) {
-        let id = match[1];
-        let callsign = match[2];
-        let method = match[3];
-        let params = match[4];
-
-        this._admin.call(id, callsign, method, params).then(
-          response => this.onResponse(response, id, callsign, method, params),
-          err => this.onResponse(err, id, callsign, method, params)
-        );
-      } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+(.+)$/))) {
-        let id = match[1];
-        let callsign = match[2];
-        let method = match[3];
-
-        this._admin.call(id, callsign, method).then(
-          response => this.onResponse(response, id, callsign, method),
-          err => this.onResponse(err, id, callsign, method)
-        );
-      } else {
-        throw new Error(`Bad cmd '${cmd}'`)
-      }
-    }
-
-    onResponse(response, id, callsign, method, params) {
-      console.log(`Got response for ${method}`);
-
-      this.notify(
-        `Id=${id} Callsign=${callsign} ` +
-          `Method=${method} Params=${JSON.stringify(params)} ` +
-          `Response=${JSON.stringify(response)}`
-      );
-    }
-
-    onEvent(notification, id, callsign, event) {
-      console.log(`Got event ${event}`);
-
-      this.notify(
-        `Id=${id} Callsign=${callsign} Event=${event} ` +
-          `Notification=${JSON.stringify(notification)}`
-      );
-    }
-
-    notify(message) {
-      if (this._updateListener) {
-        this._updateListener(message);
-      }
-    }
-  }
-
-  class FileScript extends Runtime {
-    constructor(file, updateListener) {
-      super(updateListener);
-
-      this._lines = [];
-      this._index = 0;
-      this._interval = 0;
+    constructor() {
+      this._pool = new ClientPool();
       this._substitute = new Map();
-
-      this.notify(`Script loading from ${file}`);
-
-      this.load(file).then(this.schedule.bind(this), this.notify.bind(this));
+      this._observers = [];
     }
 
-    load(file) {
-      let _this = this;
-
-      return new Promise(function(resolve, reject) {
-        let xhr = new XMLHttpRequest();
-
-        xhr.onreadystatechange = function() {
-          if (xhr.readyState === XMLHttpRequest.DONE) {
-            if (xhr.status === 200) {
-              try {
-                let json = JSON.parse(xhr.responseText);
-                _this._lines = json.lines;
-                _this._index = 0;
-                _this._interval = json.interval;
-
-                _this.notify(`Script loaded. ${_this._lines.length} lines`);
-
-                resolve();
-              } catch (e) {
-                reject(e);
-              }
-            } else reject(xhr.statusText);
-          }
-        };
-
-        xhr.open('GET', file);
-        xhr.send(null);
-      })
+    registerObserver(observer) {
+      this._observers.push(observer);
     }
 
-    schedule() {
-      setTimeout(() => {
-        let cmd = this._lines[this._index++];
-        if (cmd) {
-          try {
-            cmd = cmd.replace(/<<<([^>]+)>>>/g, (match, p1) => {
-              if (this._substitute.has(p1)) return this._substitute.get(p1)
-              return ''
-            });
+    unregisterObserver(observer) {
+      let index = this._observers.indexOf(observer);
+      if (index !== -1) {
+        this._observers.splice(index, 1);
+      }
+    }
 
-            this.notify(`Script line: ${cmd}`);
+    clear() {
+      this._pool.clear();
+      this._substitute = new Map();
+      this._observers = [];
+    }
 
-            this.process(cmd);
-          } catch (e) {
-            this.notify(`Error: ${e}`);
-          }
+    process(input) {
+      input = input.replace(/<<<([^>]+)>>>/g, (match, p1) => {
+        if (this._substitute.has(p1)) return this._substitute.get(p1)
+        return ''
+      });
 
-          this.schedule();
-        } else {
-          this.notify('Script Ended');
+      this.notifyObservers('onCommand', input);
+
+      let cmd = new Command(input);
+      if (cmd.type === 'new') {
+        this._pool.new(cmd.id);
+      } else if (cmd.type === 'delete') {
+        this._pool.delete(cmd.id);
+      } else {
+        let client = this._pool.get(cmd.id);
+        let fn = client[cmd.type];
+        let newArgs = cmd.toArray().slice(2);
+        if (cmd.type === 'on') {
+          // Add event listeners
+          newArgs.splice(
+            2,
+            0,
+            notification => this.onEvent(notification, cmd),
+            err => this.onEvent(err, cmd)
+          );
         }
-      }, this._interval);
+        let result = fn.apply(client, newArgs);
+        if (cmd.type === 'call') {
+          // Add call result listeners
+          result.then(
+            response => this.onResponse(response, cmd),
+            err => this.onResponse(err, cmd)
+          );
+        }
+        return result
+      }
     }
 
     addSubstitute(key, value) {
@@ -6587,22 +6567,126 @@ var APP_interactive = (function () {
       }
     }
 
-    onResponse(response, id, callsign, method, params) {
-      super.onResponse(response, id, callsign, method, params);
-
-      this.addSubstitute(`${id}.${callsign}.${method}`, response);
+    onResponse(response, cmd) {
+      this.addSubstitute(`${cmd.id}.${cmd.callsign}.${cmd.method}`, response);
+      this.notifyObservers('onResponse', response, cmd);
     }
 
-    onEvent(notification, id, callsign, event) {
-      super.onEvent(notification, id, callsign, event);
+    onEvent(notification, cmd) {
+      this.addSubstitute(`${cmd.id}.${cmd.callsign}.${cmd.eventName}`, notification);
+      this.notifyObservers('onEvent', notification, cmd);
+    }
 
-      let key = `${id}.${callsign}.${event}`;
-      if (typeof event === 'string' && event[0] === '{') {
-        key = `${id}.${callsign}.${JSON.parse(event).event}`;
+    notifyObservers(message, ...otherArgs) {
+      for (const observer of this._observers) {
+        let fn = observer[message];
+        if (fn) fn.apply(observer, otherArgs);
+        else throw new Error(`Observer has no method '${message}'`)
       }
-
-      this.addSubstitute(key, notification);
     }
+  }
+
+  class Script {
+    constructor() {
+      this._filename = null;
+      this._lines = [];
+      this._interval = 0;
+    }
+
+    get filename() {
+      return this._filename
+    }
+
+    load(file) {
+      let _this = this;
+
+      return new Promise(function(resolve, reject) {
+        let xhr = new XMLHttpRequest();
+
+        xhr.onreadystatechange = function() {
+          if (xhr.readyState === XMLHttpRequest.DONE) {
+            if (xhr.status === 200) {
+              try {
+                let json = JSON.parse(xhr.responseText);
+                _this._lines = json.lines;
+                _this._interval = json.interval;
+                _this._filename = file;
+                resolve();
+              } catch (e) {
+                reject(e);
+              }
+            } else reject(xhr.statusText);
+          }
+        };
+
+        xhr.open('GET', file);
+        xhr.send(null);
+      })
+    }
+
+    get interval() {
+      return this._interval
+    }
+
+    get lines() {
+      return this._lines
+    }
+  }
+
+  class ScriptRuntime extends Runtime {
+    constructor(file) {
+      super();
+
+      this._index = 0;
+      this._script = new Script(file);
+      this._script.load(file).then(
+        () => {
+          this.notifyObservers('onScriptStart', this._script);
+          this.schedule();
+        },
+        err => this.notifyObservers('onScriptLoadError', err)
+      );
+    }
+
+    clear() {
+      clearTimeout(this._timer);
+      this._index = 0;
+      super.clear();
+    }
+
+    onTimer() {
+      let cmd = this._script.lines[this._index++];
+      if (cmd) {
+        try {
+          this.process(cmd);
+        } catch (e) {
+          this.notifyObservers('onCommandError', e);
+        }
+        this.schedule();
+      } else {
+        this.notifyObservers('onScriptEnd');
+      }
+    }
+
+    schedule() {
+      this._timer = setTimeout(this.onTimer.bind(this), this._script.interval);
+    }
+  }
+
+  class Observer {
+    onResponse() {}
+
+    onEvent() {}
+
+    onCommand() {}
+
+    onCommandError() {}
+
+    onScriptLoadError() {}
+
+    onScriptStart() {}
+
+    onScriptEnd() {}
   }
 
   class App extends Lightning.Component {
@@ -6657,20 +6741,53 @@ var APP_interactive = (function () {
       this._inputHistory = [];
       this._inputHistoryIndex = 0;
 
+      let _this = this;
+      this._runtimeObserver = new (class extends Observer {
+        onResponse(response, cmd) {
+          _this._logDefault(
+            `Id=${cmd.id} Callsign=${cmd.callsign} ` +
+              `Method=${cmd.method} Params=${JSON.stringify(cmd.params)} ` +
+              `Response=${JSON.stringify(response)}`
+          );
+        }
+
+        onEvent(notification, cmd) {
+          _this._logDefault(
+            `Id=${cmd.id} Callsign=${cmd.callsign} Event=${cmd.eventName} ` +
+              `Notification=${JSON.stringify(notification)}`
+          );
+        }
+
+        onCommand(cmd) {
+          _this._logDefault(`Command: ${cmd}`);
+        }
+
+        onCommandError(err) {
+          _this._logError(`${err}`);
+        }
+
+        onScriptLoadError(err) {
+          _this._logError(`Script load error: ${err}`);
+        }
+
+        onScriptStart(script) {
+          _this._logDefault(`Script loaded from: ${script.filename} (${script.lines.length} lines)`);
+        }
+
+        onScriptEnd() {
+          _this._logDefault('Script Ended');
+        }
+      })();
+
       this._setState('UserInput');
     }
 
     _logDefault(message) {
       console.log(message);
-      this.tag('Log').add(message, LineStyle.Green);
-    }
-
-    _logImportant(message) {
-      console.warn(message);
       this.tag('Log').add(message, LineStyle.Default);
     }
 
-    _logCritical(message) {
+    _logError(message) {
       console.error(message);
       this.tag('Log').add(message, LineStyle.Red);
     }
@@ -6682,7 +6799,9 @@ var APP_interactive = (function () {
             this.tag('Log').clear();
             this.tag('Text').text = '';
 
-            this._runtime = new Runtime(this._logImportant.bind(this));
+            if (this._runtime) this._runtime.clear();
+            this._runtime = new Runtime();
+            this._runtime.registerObserver(this._runtimeObserver);
           }
           _handleKey(event) {
             if (event.defaultPrevented) {
@@ -6722,10 +6841,9 @@ var APP_interactive = (function () {
                   this._inputHistory.push(inputText);
                   this._inputHistoryIndex = this._inputHistory.length;
                   try {
-                    this._logDefault(`[Input] ${inputText}`);
                     this._runtime.process(inputText);
                   } catch (e) {
-                    this._logCritical(e.message);
+                    this._logError(e.message);
                   }
                   inputText = '';
                 }
@@ -6791,7 +6909,9 @@ var APP_interactive = (function () {
             this.tag('Log').clear();
             this.tag('Text').text = '';
 
-            this._runtime = new FileScript(this._scriptFile, this._logImportant.bind(this));
+            if (this._runtime) this._runtime.clear();
+            this._runtime = new ScriptRuntime(this._scriptFile);
+            this._runtime.registerObserver(this._runtimeObserver);
           }
           $exit() {}
           _getFocused() {

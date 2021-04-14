@@ -1,86 +1,95 @@
-import Admin from '../thunder/Admin'
+import ClientPool from './ClientPool'
+import Command from './Command'
 
 export default class Runtime {
-  constructor(updateListener) {
-    this._admin = new Admin()
-    this._updateListener = updateListener
+  constructor() {
+    this._pool = new ClientPool()
+    this._substitute = new Map()
+    this._observers = []
   }
 
-  process(cmd) {
-    let match
+  registerObserver(observer) {
+    this._observers.push(observer)
+  }
 
-    if ((match = cmd.match(/^([^\s]+)\s+new$/))) {
-      let id = match[1]
-
-      this._admin.new(id)
-    } else if ((match = cmd.match(/^([^\s]+)\s+delete$/))) {
-      let id = match[1]
-
-      this._admin.delete(id)
-    } else if ((match = cmd.match(/^([^\s]+)\s+on\s+([^\s]+)\s+(.+)$/))) {
-      let id = match[1]
-      let callsign = match[2]
-      let event = match[3]
-
-      this._admin.on(
-        id,
-        callsign,
-        event,
-        notification => this.onEvent(notification, id, callsign, event),
-        err => this.onEvent(err, id, callsign, event)
-      )
-    } else if ((match = cmd.match(/^([^\s]+)\s+off\s+([^\s]+)\s+(.+)$/))) {
-      let id = match[1]
-      let callsign = match[2]
-      let event = match[3]
-
-      this._admin.off(id, callsign, event)
-    } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+([^\s]+)\s+(.+)$/))) {
-      let id = match[1]
-      let callsign = match[2]
-      let method = match[3]
-      let params = match[4]
-
-      this._admin.call(id, callsign, method, params).then(
-        response => this.onResponse(response, id, callsign, method, params),
-        err => this.onResponse(err, id, callsign, method, params)
-      )
-    } else if ((match = cmd.match(/^([^\s]+)\s+call\s+([^\s]+)\s+(.+)$/))) {
-      let id = match[1]
-      let callsign = match[2]
-      let method = match[3]
-
-      this._admin.call(id, callsign, method).then(
-        response => this.onResponse(response, id, callsign, method),
-        err => this.onResponse(err, id, callsign, method)
-      )
-    } else {
-      throw new Error(`Bad cmd '${cmd}'`)
+  unregisterObserver(observer) {
+    let index = this._observers.indexOf(observer)
+    if (index !== -1) {
+      this._observers.splice(index, 1)
     }
   }
 
-  onResponse(response, id, callsign, method, params) {
-    console.log(`Got response for ${method}`)
-
-    this.notify(
-      `Id=${id} Callsign=${callsign} ` +
-        `Method=${method} Params=${JSON.stringify(params)} ` +
-        `Response=${JSON.stringify(response)}`
-    )
+  clear() {
+    this._pool.clear()
+    this._substitute = new Map()
+    this._observers = []
   }
 
-  onEvent(notification, id, callsign, event) {
-    console.log(`Got event ${event}`)
+  process(input) {
+    input = input.replace(/<<<([^>]+)>>>/g, (match, p1) => {
+      if (this._substitute.has(p1)) return this._substitute.get(p1)
+      return ''
+    })
 
-    this.notify(
-      `Id=${id} Callsign=${callsign} Event=${event} ` +
-        `Notification=${JSON.stringify(notification)}`
-    )
+    this.notifyObservers('onCommand', input)
+
+    let cmd = new Command(input)
+    if (cmd.type === 'new') {
+      this._pool.new(cmd.id)
+    } else if (cmd.type === 'delete') {
+      this._pool.delete(cmd.id)
+    } else {
+      let client = this._pool.get(cmd.id)
+      let fn = client[cmd.type]
+      let newArgs = cmd.toArray().slice(2)
+      if (cmd.type === 'on') {
+        // Add event listeners
+        newArgs.splice(
+          2,
+          0,
+          notification => this.onEvent(notification, cmd),
+          err => this.onEvent(err, cmd)
+        )
+      }
+      let result = fn.apply(client, newArgs)
+      if (cmd.type === 'call') {
+        // Add call result listeners
+        result.then(
+          response => this.onResponse(response, cmd),
+          err => this.onResponse(err, cmd)
+        )
+      }
+      return result
+    }
   }
 
-  notify(message) {
-    if (this._updateListener) {
-      this._updateListener(message)
+  addSubstitute(key, value) {
+    if (value && typeof value === 'object') {
+      for (let [k, v] of Object.entries(value)) {
+        this.addSubstitute(key + '.' + k, v)
+      }
+    } else if (typeof value === 'string') {
+      console.debug(`${key} -> ${value}`)
+
+      this._substitute.set(key, value)
+    }
+  }
+
+  onResponse(response, cmd) {
+    this.addSubstitute(`${cmd.id}.${cmd.callsign}.${cmd.method}`, response)
+    this.notifyObservers('onResponse', response, cmd)
+  }
+
+  onEvent(notification, cmd) {
+    this.addSubstitute(`${cmd.id}.${cmd.callsign}.${cmd.eventName}`, notification)
+    this.notifyObservers('onEvent', notification, cmd)
+  }
+
+  notifyObservers(message, ...otherArgs) {
+    for (const observer of this._observers) {
+      let fn = observer[message]
+      if (fn) fn.apply(observer, otherArgs)
+      else throw new Error(`Observer has no method '${message}'`)
     }
   }
 }
