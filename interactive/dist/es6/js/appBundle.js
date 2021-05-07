@@ -1,9 +1,9 @@
 /**
- * App version: 1.0.44
+ * App version: 1.0.45
  * SDK version: 4.2.1
- * CLI version: 2.4.0
+ * CLI version: 2.5.0
  *
- * Generated: Fri, 23 Apr 2021 15:06:31 GMT
+ * Generated: Fri, 07 May 2021 10:29:21 GMT
  */
 
 var APP_interactive = (function () {
@@ -479,7 +479,7 @@ var APP_interactive = (function () {
    * If not stated otherwise in this file or this component's LICENSE file the
    * following copyright and licenses apply:
    *
-   * Copyright 2020 RDK Management
+   * Copyright 2020 Metrological
    *
    * Licensed under the Apache License, Version 2.0 (the License);
    * you may not use this file except in compliance with the License.
