@@ -1,9 +1,9 @@
 /**
- * App version: 1.0.45
+ * App version: 1.0.46
  * SDK version: 4.2.1
  * CLI version: 2.5.0
  *
- * Generated: Fri, 07 May 2021 10:29:21 GMT
+ * Generated: Mon, 31 May 2021 15:39:15 GMT
  */
 
 var APP_interactive = (function () {
