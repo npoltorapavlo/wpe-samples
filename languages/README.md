@@ -2,6 +2,13 @@
 
 ## languages
 
+### Examples
+
+https://npoltorapavlo.github.io/lightning-samples/languages/dist/es6/index.html
+https://npoltorapavlo.github.io/lightning-samples/languages/dist/es6/index.html?language=en&countryCode=us
+https://npoltorapavlo.github.io/lightning-samples/languages/dist/es6/index.html?language=fr&countryCode=ca
+https://npoltorapavlo.github.io/lightning-samples/languages/dist/es6/index.html?language=foo&countryCode=bar
+
 ### Getting started
 
 > Before you follow the steps below, make sure you have the

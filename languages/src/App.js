@@ -17,41 +17,30 @@
  * limitations under the License.
  */
 
-import { Lightning } from '@lightningjs/sdk'
-import { Language } from '@lightningjs/sdk'
+import { Lightning, Utils, Language } from '@lightningjs/sdk'
 
-const fuiURL = `${document.location.protocol}//${document.location.host}`
-
-function getFonts(localUrl) {
-  return [
-    {
-      family: 'Regular',
-      url: localUrl + '/Roboto-Regular.ttf',
-    },
-  ]
-}
-
-function getLocale(localUrl, language, countryCode) {
-  return `${localUrl}/locale_${language}_${countryCode}_xglobal.json`
+const getQueryParam = (name, defaultValue) => {
+  return new URLSearchParams(window.location.search).get(name) || defaultValue
 }
 
 export default class App extends Lightning.Component {
   static get config() {
-    const locale = getLocale(fuiURL + '/static/locale/1.68.2', 'en', 'us')
+    const language = getQueryParam('language', 'en')
+    const countryCode = getQueryParam('countryCode', 'us')
 
     return {
-      fonts: getFonts(fuiURL + '/static/fonts'),
-      locale,
+      fonts: [{ family: 'Regular', url: Utils.asset('fonts/Roboto-Regular.ttf') }],
+      locale: Utils.asset(`locale/1.68.2/locale_${language}_${countryCode}_xglobal.json`),
     }
   }
 
   static language() {
-    const language = 'en'
-    const file = getLocale(fuiURL + '/static/locale/1.68.2', 'en', 'us')
+    const language = getQueryParam('language', 'en')
+    const countryCode = getQueryParam('countryCode', 'us')
 
     return {
       language,
-      file,
+      file: Utils.asset(`locale/1.68.2/locale_${language}_${countryCode}_xglobal.json`),
     }
   }
 
