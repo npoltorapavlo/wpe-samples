@@ -1,1 +1,1 @@
-# lightning-samples
+# wpe-samples
