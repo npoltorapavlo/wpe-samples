@@ -18,10 +18,10 @@
             debug: true,
         }
         const thunder = ThunderJS(thunderConfig)
-        const join = (user, room) => thunder.call('Messenger', 'join', {'user': user, 'room': room})
+        const join = (user, room) => thunder.call('Messenger', 'join', {user, room})
             .then(result => result.roomid)
-        const leave = (roomid) => thunder.call('Messenger', 'leave', {'roomid': roomid})
-        const send = (roomid, message) => thunder.call('Messenger', 'send', {'roomid': roomid, 'message': message})
+        const leave = (roomid) => thunder.call('Messenger', 'leave', {roomid})
+        const send = (roomid, message) => thunder.call('Messenger', 'send', {roomid, message})
 
         join('user1', 'room1')
             .then(roomid1 => join('user2', 'room1')

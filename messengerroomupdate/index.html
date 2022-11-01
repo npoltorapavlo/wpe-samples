@@ -18,9 +18,9 @@
             debug: true,
         }
         const thunder = ThunderJS(thunderConfig)
-        const join = (user, room) => thunder.call('Messenger', 'join', {'user': user, 'room': room})
+        const join = (user, room) => thunder.call('Messenger', 'join', {user, room})
             .then(result => result.roomid)
-        const leave = (roomid) => thunder.call('Messenger', 'leave', {'roomid': roomid})
+        const leave = (roomid) => thunder.call('Messenger', 'leave', {roomid})
 
         const roomupdate = thunder.on('Messenger', 'roomupdate', (params) => {
             console.log(`${params.secure} room '${params.room}' was ${params.action}`)

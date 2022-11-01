@@ -18,10 +18,9 @@
             debug: true,
         }
         const thunder = ThunderJS(thunderConfig)
-        const join = (user, room, secure, acl) => thunder.call('Messenger', 'join', {
-            'user': user, 'room': room, 'secure': secure, 'acl': acl
-        }).then(result => result.roomid)
-        const leave = (roomid) => thunder.call('Messenger', 'leave', {'roomid': roomid})
+        const join = (user, room, secure, acl) => thunder.call('Messenger', 'join', {user, room, secure, acl})
+            .then(result => result.roomid)
+        const leave = (roomid) => thunder.call('Messenger', 'leave', {roomid})
 
         join('user1', 'room1', 'secure', ['https://npoltorapavlo.github.io'])
             .then(roomid1 => join('user2', 'room1', 'secure')
