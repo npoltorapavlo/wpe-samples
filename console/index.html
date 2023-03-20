@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+    console.log('--- Print standard built-in types ---')
+    console.log('Text')
+    console.log('Arg1', 'Arg2', 'Arg3')
+    console.log({ key1: 1, key2: 2 })
+    console.log([1, 2, 3])
+    console.log(1, 2, 3)
+    console.log(0.123504356834068350785408445787087036346346)
+    console.log(Boolean(true))
+    console.log(false)
+    console.log(Date.now())
+    console.log(new Date())
+    console.log(new Date().toString())
+    console.log(new Date().toUTCString())
+    console.log(null)
+    console.log(undefined)
+    console.log()
+    console.log(new Array(['Item of new Array']))
+    const map = new Map();
+    map.set('Item of new Map', 1);
+    console.log(map)
+    console.log(JSON.parse('{"json":{"key":{"a": "b"}}}'))
+    function fn(a, b) {
+      return a + b
+    }
+    console.log(fn)
+    const promise = new Promise((resolve, reject) => {
+      setTimeout(() => {
+        resolve('foo')
+      }, 300)
+    });
+    console.log(promise)
+    console.log('Arg1',
+      null,
+      'Arg3',
+      new Error('Arg4 as Error'),
+      undefined,
+      1, 2, 3,
+      ['Arr item'])
+
+    console.log('--- Print classes ---')
+    class Rectangle {
+      constructor(height, width) {
+        this.height = height;
+        this.width = width;
+      }
+    }
+    const rect = new Rectangle(1280, 720)
+    console.log(rect)
+    console.log(JSON.stringify(rect))
+
+    console.log('--- Print errors ---')
+    const err = new Error('Sample error')
+    console.log(err)
+    console.log('Text + Error:' + err)
+    console.log('Error as next Arg:', err)
+
+    console.log('--- Print as info/debug/error/warn ---')
+    console.info('Info!')
+    console.debug('Debug!')
+    console.error('Error!')
+    console.warn('Warn!')
+    console.error('Error:', new EvalError('new Eval Error'))
+    console.warn('Warn:', new RangeError('new Range Error'))
+    console.error(new ReferenceError('new Reference Error'))
+    console.warn(new SyntaxError('new Syntax Error'))
+
+    console.log('--- Print with style ---')
+    console.log('%cRed',
+      'background-color: red; color: white; padding: 2px 4px; border-radius: 2px',
+      'Next arg without style')
+    console.log('%cThis is green %cThis is orange',
+      'background-color: green; color: white;',
+      'background-color: orange; color: white;',
+      'Next arg without style')
+
+    /**
+     * Output:
+     * 2021 Oct 08 12:44:06.607416 startWPE[5161]: [app1]:index.html:5,16 --- Print standard built-in types ---
+     2021 Oct 08 12:44:06.607818 startWPE[5161]: [app1]:index.html:6,16 Text
+     2021 Oct 08 12:44:06.608076 startWPE[5161]: [app1]:index.html:7,16 Arg1
+     2021 Oct 08 12:44:06.618295 startWPE[5161]: [app1]:index.html:8,16 [object Object]
+     2021 Oct 08 12:44:06.618931 startWPE[5161]: [app1]:index.html:9,16 1,2,3
+     2021 Oct 08 12:44:06.619229 startWPE[5161]: [app1]:index.html:10,16 1
+     2021 Oct 08 12:44:06.619470 startWPE[5161]: [app1]:index.html:11,16 0.12350435683406835
+     2021 Oct 08 12:44:06.619865 startWPE[5161]: [app1]:index.html:12,16 true
+     2021 Oct 08 12:44:06.625269 startWPE[5161]: [app1]:index.html:13,16 false
+     2021 Oct 08 12:44:06.627431 startWPE[5161]: [app1]:index.html:14,16 1633697046609
+     2021 Oct 08 12:44:06.634625 startWPE[5161]: [app1]:index.html:15,16 Fri Oct 08 2021 15:44:06 GMT+0300 (EEST)
+     2021 Oct 08 12:44:06.635357 startWPE[5161]: [app1]:index.html:16,16 Fri Oct 08 2021 15:44:06 GMT+0300 (EEST)
+     2021 Oct 08 12:44:06.635737 startWPE[5161]: [app1]:index.html:17,16 Fri, 08 Oct 2021 12:44:06 GMT
+     2021 Oct 08 12:44:06.647041 startWPE[5161]: [app1]:index.html:18,16 null
+     2021 Oct 08 12:44:06.647534 startWPE[5161]: [app1]:index.html:19,16 undefined
+     2021 Oct 08 12:44:06.651927 startWPE[5161]: [app1]:index.html:21,16 Item of new Array
+     2021 Oct 08 12:44:06.652337 startWPE[5161]: [app1]:index.html:24,16 [object Map]
+     2021 Oct 08 12:44:06.652745 startWPE[5161]: [app1]:index.html:25,16 [object Object]
+     2021 Oct 08 12:44:06.653012 startWPE[5161]: [app1]:index.html:29,16 function fn(a, b) {
+2021 Oct 08 12:44:06.653245 startWPE[5161]:       return a + b
+2021 Oct 08 12:44:06.664267 startWPE[5161]:     }
+     2021 Oct 08 12:44:06.675124 startWPE[5161]: [app1]:index.html:35,16 [object Promise]
+     2021 Oct 08 12:44:06.675826 startWPE[5161]: [app1]:index.html:36,16 Arg1
+     2021 Oct 08 12:44:06.676122 startWPE[5161]: [app1]:index.html:44,16 --- Print classes ---
+     2021 Oct 08 12:44:06.676370 startWPE[5161]: [app1]:index.html:52,16 [object Object]
+     2021 Oct 08 12:44:06.676606 startWPE[5161]: [app1]:index.html:53,16 {"height":1280,"width":720}
+     2021 Oct 08 12:44:06.676885 startWPE[5161]: [app1]:index.html:55,16 --- Print errors ---
+     2021 Oct 08 12:44:06.677118 startWPE[5161]: [app1]:index.html:57,16 Error: Sample error
+     2021 Oct 08 12:44:06.677347 startWPE[5161]: [app1]:index.html:58,16 Text + Error:Error: Sample error
+     2021 Oct 08 12:44:06.677574 startWPE[5161]: [app1]:index.html:59,16 Error as next Arg:
+     2021 Oct 08 12:44:06.695889 startWPE[5161]: [app1]:index.html:61,16 --- Print as info/debug/error/warn ---
+     2021 Oct 08 12:44:06.696990 startWPE[5161]: [app1]:index.html:62,17 Info!
+     2021 Oct 08 12:44:06.702066 startWPE[5161]: [app1]:index.html:63,18 Debug!
+     2021 Oct 08 12:44:06.705425 startWPE[5161]: [app1]:index.html:64,18 Error!
+     2021 Oct 08 12:44:06.706029 startWPE[5161]: [app1]:index.html:65,17 Warn!
+     2021 Oct 08 12:44:06.706332 startWPE[5161]: [app1]:index.html:66,18 Error:
+     2021 Oct 08 12:44:06.706580 startWPE[5161]: [app1]:index.html:67,17 Warn:
+     2021 Oct 08 12:44:06.706860 startWPE[5161]: [app1]:index.html:68,18 ReferenceError: new Reference Error
+     2021 Oct 08 12:44:06.707100 startWPE[5161]: [app1]:index.html:69,17 SyntaxError: new Syntax Error
+     2021 Oct 08 12:44:06.707326 startWPE[5161]: [app1]:index.html:71,16 --- Print with style ---
+     2021 Oct 08 12:44:06.712951 startWPE[5161]: [app1]:index.html:72,16 %cRed
+     2021 Oct 08 12:44:06.713606 startWPE[5161]: [app1]:index.html:75,16 %cThis is green %cThis is orange
+     */
+</script>
+</body>
+</html>

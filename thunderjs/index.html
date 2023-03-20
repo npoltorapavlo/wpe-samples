@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+    const xhr = new XMLHttpRequest()
+    xhr.open("GET", "https://raw.githubusercontent.com/rdkcentral/ThunderJS/v1.2.5/dist/thunderJS.js")
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+            window.eval(xhr.responseText)
+        }
+    }
+    xhr.send()
+
+    setTimeout(function () {
+        const thunderConfig = {
+            host: '127.0.0.1',
+            port: 9998,
+            debug: true,
+        }
+        const thunder = ThunderJS(thunderConfig)
+        thunder
+            .call('DisplayInfo', 'connected')
+            .then(result => {
+                console.log(`result is : ${JSON.stringify(result)}`)
+            })
+            .catch(err => {
+                console.log(`invoke failed : ${err && err.message ? err.message : err}`)
+            })
+    }, 3000)
+
+</script>
+</body>
+</html>

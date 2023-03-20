@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+    const xhr = new XMLHttpRequest()
+    xhr.open("GET", "https://raw.githubusercontent.com/kpears201/ThunderJS/listener-prefix-override/dist/thunderJS.js")
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+            window.eval(xhr.responseText)
+        }
+    }
+    xhr.send()
+
+    setTimeout(function () {
+        const thunderConfig = {
+            host: '127.0.0.1',
+            port: 9998,
+            debug: true,
+        }
+        const thunder = ThunderJS(thunderConfig)
+        const join = (user, room) => thunder.call('Messenger', 'join', {user, room})
+            .then(result => result.roomid)
+        const leave = (roomid) => thunder.call('Messenger', 'leave', {roomid})
+
+        join('user1', 'room1')
+            .then(roomid1 => join('user2', 'room1')
+                .then(roomid2 => {
+                    const userupdate = thunder.on('Messenger', {'event': 'userupdate', 'prefix': roomid2}, (params) => {
+                        console.log(`user '${params.user}' ${params.action}`)
+                    })
+                    return leave(roomid1)
+                        .finally(() => leave(roomid2))
+                        .finally(() => userupdate.dispose())
+                })
+            ).catch(err => console.log(err && err.message ? err.message : err))
+    }, 3000)
+
+</script>
+</body>
+</html>
