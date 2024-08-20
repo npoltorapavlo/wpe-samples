@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+    const xhr = new XMLHttpRequest()
+    xhr.open("GET", "https://raw.githubusercontent.com/rdkcentral/ThunderJS/v1.2.5/dist/thunderJS.js")
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+            window.eval(xhr.responseText)
+        }
+    }
+    xhr.send()
+
+    setTimeout(function () {
+        const thunderConfig = {
+            host: '127.0.0.1',
+            port: 9998,
+            debug: true,
+        }
+        const thunder = ThunderJS(thunderConfig)
+        const setValue = (namespace, key, value, ttl) =>
+            thunder.call('org.rdk.PersistentStore', 'setValue', {namespace, key, value, ttl})
+        const getValue = (namespace, key) =>
+            thunder.call('org.rdk.PersistentStore', 'getValue', {namespace, key})
+        const onValueChanged = thunder.on('org.rdk.PersistentStore', 'onValueChanged', (params) => {
+            console.log(`${params.scope} ${params.namespace} ${params.key} ${params.value}`)
+        })
+        getValue('test1', 'key1')
+            .finally(() => setValue('test1', 'key1', 'value1', 100)
+                .then(() => getValue('test1', 'key1')
+                    .then(result => console.log(`${result.value} ${result.ttl}`))
+                ).catch(err => console.log(err && err.message ? err.message : err))
+                .finally(() => onValueChanged.dispose())
+            )
+    }, 3000)
+
+</script>
+</body>
+</html>
