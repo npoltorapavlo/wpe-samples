@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<body>
+<script>
+    const xhr = new XMLHttpRequest()
+    xhr.open("GET", "https://raw.githubusercontent.com/rdkcentral/ThunderJS/v1.2.5/dist/thunderJS.js")
+    xhr.onreadystatechange = () => {
+        if (xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) {
+            window.eval(xhr.responseText)
+        }
+    }
+    xhr.send()
+
+    setTimeout(function () {
+        const thunderConfig = {
+            host: '127.0.0.1',
+            port: 9998,
+            debug: true,
+        }
+        const thunder = ThunderJS(thunderConfig)
+        const setValue = (scope, namespace, key, value, ttl) =>
+            thunder.call('org.rdk.CloudStore', 'setValue', {scope, namespace, key, value, ttl})
+        const getValue = (scope, namespace, key) =>
+            thunder.call('org.rdk.CloudStore', 'getValue', {scope, namespace, key})
+        const onValueChanged = thunder.on('org.rdk.CloudStore', 'onValueChanged', (params) => {
+            console.log(`${params.scope} ${params.namespace} ${params.key} ${params.value}`)
+        })
+        getValue('account', 'test1', 'key1')
+            .finally(() => setValue('account', 'test1', 'key1', 'value1', 100)
+                .then(() => getValue('account', 'test1', 'key1')
+                    .then(result => console.log(`${result.value} ${result.ttl}`))
+                ).catch(err => console.log(err && err.message ? err.message : err))
+                .finally(() => onValueChanged.dispose())
+            )
+    }, 3000)
+
+</script>
+</body>
+</html>
